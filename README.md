@@ -17,3 +17,9 @@ Open the **Releases** page on your phone and install `Tube.apk` from the newest 
 - v1: browse, search, channels, subscriptions, player, SponsorBlock, DeArrow
 - v2: video and audio downloads with yt-dlp
 - v3: extras
+
+## Licence
+
+Tube is under the **Floodgate License**: view-only, all rights reserved,
+until the author opens the floodgate. From then on it becomes GPL-3.0-or-later.
+See [LICENSE](LICENSE).

@@ -1,0 +1,73 @@
+The Floodgate License
+Version 1.0
+
+Copyright (c) 2026 Aaron Parry. All rights reserved.
+
+"The Software" means the source code, assets and build files in this
+repository that were created by or for Aaron Parry ("the Licensor"),
+together with any APK or other build made from them.
+
+
+1. WHILE THE FLOODGATE IS CLOSED
+
+Until the Floodgate opens (section 2), you may only look at the Software
+in the place where the Licensor has published it.
+
+You may NOT, in whole or in part:
+
+  a) copy, download, clone, fork or mirror the Software, except for the
+     temporary copies your device makes automatically while you view it,
+     or anything the hosting platform's own terms of service require;
+  b) modify, translate or build upon it, or make derivative works;
+  c) compile, install, run or otherwise use it;
+  d) share, publish, sell, sublicense or distribute it, or any build of it;
+  e) use it to train, fine-tune or evaluate any machine learning model.
+
+No other right or licence is granted, whether by implication, estoppel
+or otherwise.
+
+
+2. OPENING THE FLOODGATE
+
+The Licensor may open the Floodgate at any time, at the Licensor's sole
+choice, by publishing a notice in this repository. The notice is either:
+
+  a) a file named FLOODGATE_OPEN in the root of the repository, or
+  b) a statement in this LICENSE file,
+
+saying that the Floodgate is open and giving the date it opens.
+
+From that date onward, the Software is licensed under the GNU General
+Public License, version 3 or (at your option) any later version
+("GPL-3.0-or-later"). The full text is at
+https://www.gnu.org/licenses/gpl-3.0.txt.
+
+Opening the Floodgate cannot be undone for any version of the Software
+published before or at the moment it opens.
+
+
+3. THIRD-PARTY COMPONENTS
+
+This license covers only the Licensor's own work. Libraries and services
+the Software uses keep their own licenses and terms, including:
+
+  - NewPipeExtractor (GPL-3.0)
+  - AndroidX, Jetpack Compose and Media3 (Apache-2.0)
+  - Coil and OkHttp (Apache-2.0)
+  - SponsorBlock, DeArrow and Return YouTube Dislike (their own API terms)
+
+The change to GPL-3.0-or-later in section 2 is chosen so that the
+Software stays compatible with NewPipeExtractor.
+
+
+4. BREACH
+
+If you break these terms, any permission you had under this license ends
+immediately.
+
+
+5. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED. IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
