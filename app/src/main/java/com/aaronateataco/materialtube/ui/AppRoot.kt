@@ -87,6 +87,11 @@ private val tabs = listOf(
 
 private fun isTab(route: String?) = tabs.any { it.route == route }
 
+/** Set once the first Home feed has loaded, so the intro can step aside. */
+object StartupState {
+    var homeReady by androidx.compose.runtime.mutableStateOf(false)
+}
+
 /** Lets the Shorts screen ask for the screen to stay on. */
 object ScreenAwake {
     var shorts by androidx.compose.runtime.mutableStateOf(false)
@@ -276,6 +281,8 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
         if (vm.sheetVisible && !inPip && !miniHidden) {
             PlayerSheet(vm, bottomBarVisible = showBar, onChannel = openChannel)
         }
+
+        IntroOverlay()
 
         // Picture-in-picture: just the video, on black.
         if (inPip) {

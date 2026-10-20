@@ -22,6 +22,8 @@ data class Settings(
 
     // Shorts
     val shortsDisabled: Boolean = false,
+    /** "youtube", "tiktok" or "reels" */
+    val shortsLayout: String = "youtube",
     /** Max Shorts per visit to the Shorts tab; 0 = no limit */
     val shortsSessionLimit: Int = 0,
     /** Max minutes of Shorts per day; 0 = no limit */

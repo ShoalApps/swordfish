@@ -205,6 +205,8 @@ class HomeViewModel : ViewModel() {
                     }
                 }
                 items = FeedFilter.apply(list)
+                // Preload the first few videos so tapping them starts instantly.
+                AppGraph.scope.launch { AppGraph.repo.prefetch(items.take(3).map { it.id }) }
                 shortsJob?.let { shorts = FeedFilter.apply(it.await()).take(12) }
                 if (!wantShorts) shorts = emptyList()
                 generation++
@@ -215,6 +217,7 @@ class HomeViewModel : ViewModel() {
             } finally {
                 loading = false
                 refreshing = false
+                com.aaronateataco.materialtube.ui.StartupState.homeReady = true
             }
         }
     }
@@ -293,9 +296,9 @@ fun HomeScreen(
                                 else VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = Modifier.animateItem().staggeredReveal(i))
                             }
                             // Shorts shelves sit between videos, like the official app.
-                            if ((i == 1 || i == 11) && vm.shorts.isNotEmpty()) {
-                                val part = if (i == 1) vm.shorts.take(6) else vm.shorts.drop(6)
-                                if (part.isNotEmpty()) item(key = "$gen-shorts-$i") { ShortsShelf(part, onShorts) }
+                            // One Shorts shelf, after the second video, like the official app.
+                            if (i == 1 && vm.shorts.isNotEmpty()) {
+                                item(key = "$gen-shorts") { ShortsShelf(vm.shorts, onShorts) }
                             }
                         }
                     }

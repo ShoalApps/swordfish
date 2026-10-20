@@ -215,6 +215,70 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         post("like/$action") { putJsonObject("target") { put("videoId", videoId) } }
     }
 
+    // -------- Comments --------
+
+    /** Opens the signed-in comments section for a video and returns its first page. */
+    private suspend fun commentsPage(videoId: String): JsonObject {
+        val watch = post("next") { put("videoId", videoId) }
+        return withContext(Dispatchers.Default) { findCommentsToken(watch) }
+            ?.let { t -> post("next") { put("continuation", t) } }
+            ?: throw IOException("Comments are turned off for this video")
+    }
+
+    private fun findCommentsToken(watch: JsonObject): String? {
+        var token: String? = null
+        Yti.walk(watch) { k, v ->
+            if (token == null && k == "itemSectionRenderer" &&
+                (v["sectionIdentifier"] as? JsonPrimitive)?.content == "comment-item-section"
+            ) {
+                token = Yti.continuation(v)
+            }
+            token != null
+        }
+        if (token == null) {
+            // Newer layout: the comments panel continuation lives in an engagement panel.
+            Yti.walk(watch) { k, v ->
+                if (token == null && k == "engagementPanelSectionListRenderer" &&
+                    v.toString().contains("comment", true)
+                ) token = Yti.continuation(v)
+                token != null
+            }
+        }
+        return token
+    }
+
+    suspend fun postComment(videoId: String, text: String) {
+        val page = commentsPage(videoId)
+        val params = Yti.findStringPublic(page, "createCommentParams")
+            ?: throw IOException("YouTube didn't allow commenting here")
+        post("comment/create_comment") {
+            put("commentText", text)
+            put("createCommentParams", params)
+        }
+    }
+
+    suspend fun replyToComment(videoId: String, commentId: String, text: String) {
+        val page = commentsPage(videoId)
+        // Find the smallest object mentioning this comment that carries reply parameters.
+        val params = withContext(Dispatchers.Default) {
+            var best: JsonObject? = null
+            var bestSize = Int.MAX_VALUE
+            Yti.walk(page) { _, v ->
+                val str = v.toString()
+                if (str.length < bestSize && str.contains(commentId) && str.contains("createReplyParams")) {
+                    best = v; bestSize = str.length
+                }
+                false
+            }
+            best?.let { Yti.findStringPublic(it, "createReplyParams") }
+        }
+            ?: throw IOException("Replying is only available on the first page of comments")
+        post("comment/create_comment_reply") {
+            put("replyText", text)
+            put("createReplyParams", params)
+        }
+    }
+
     suspend fun saveToWatchLater(videoId: String) {
         post("browse/edit_playlist") {
             put("playlistId", "WL")
@@ -268,6 +332,8 @@ object Yti {
         }
         return found
     }
+
+    fun findStringPublic(el: JsonElement?, key: String) = findString(el, key)
 
     private fun findString(el: JsonElement?, key: String): String? {
         var found: String? = null

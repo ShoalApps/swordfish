@@ -179,6 +179,8 @@ fun parseDuration(text: String?): Long {
 }
 
 data class Comment(
+    val id: String = "",
+    val repliesPage: org.schabi.newpipe.extractor.Page? = null,
     val author: String,
     val avatar: String?,
     val html: String,

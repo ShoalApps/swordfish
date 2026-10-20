@@ -100,6 +100,22 @@ object AppGraph {
         syncAccount(replaceSubs = true)
     }
 
+    /** Shorts fetched at startup so the Shorts tab opens instantly. */
+    @Volatile var shortsCache: List<com.aaronateataco.materialtube.data.VideoItem>? = null
+
+    /** Warm things up in the background after launch. */
+    private fun warmUp() {
+        scope.launch {
+            kotlinx.coroutines.delay(2500) // let Home load first
+            if (store.settings.value.shortsDisabled) return@launch
+            val fromAccount = if (store.signedIn) runCatching { account.home().shorts }.getOrDefault(emptyList()) else emptyList()
+            val more = if (fromAccount.size >= 20) emptyList() else runCatching { repo.shorts(store.subs.value) }.getOrDefault(emptyList())
+            val list = (fromAccount + more).distinctBy { it.id }
+            shortsCache = list
+            repo.prefetch(list.take(3).map { it.id })
+        }
+    }
+
     fun signOut() {
         store.setCookie(null)
         store.setAccount(null)
@@ -116,5 +132,6 @@ object AppGraph {
             ContentCountry(locale.country.ifBlank { "GB" }),
         )
         if (store.signedIn && store.account.value == null) syncAccount()
+        warmUp()
     }
 }

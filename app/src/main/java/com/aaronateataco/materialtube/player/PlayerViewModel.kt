@@ -241,7 +241,7 @@ class PlayerViewModel : ViewModel() {
         loadJob?.cancel()
         info = null; error = null; segments = emptyList(); votes = null; rating = Rating.NONE
         related = emptyList(); skipped = null; skippedIds.clear(); firstFrame = false
-        comments = emptyList(); commentsNext = null
+        comments = emptyList(); commentsNext = null; commentsError = null; replies.clear()
         captionTracks = emptyList(); captionTrack = null; cues = emptyList(); captionText = null
         chapters = emptyList(); chapterIndex = -1
         quality = preferredQuality()
@@ -257,7 +257,7 @@ class PlayerViewModel : ViewModel() {
             if (s.ryd) launch { votes = AppGraph.ryd.votes(videoId) }
             launch { loadComments(url) }
             try {
-                val i = AppGraph.repo.stream(url)
+                val i = streamWithRetry(url)
                 info = i
                 val video = i.toVideo().let { v ->
                     // keep the avatar/thumbnail we already had if the page lacks them
@@ -278,7 +278,9 @@ class PlayerViewModel : ViewModel() {
             } catch (e: Exception) {
                 val msg = e.message.orEmpty()
                 error = when {
-                    msg.contains("not a bot", true) || msg.contains("LOGIN_REQUIRED") ->
+                    isBotCheck(msg) && NetworkInfo.onVpn() ->
+                        "YouTube is blocking your VPN's address. In your VPN app, turn on split tunnelling and exclude MaterialTube (or pause the VPN), then tap Try again."
+                    isBotCheck(msg) ->
                         "YouTube is asking this network to prove it isn't a bot. Try again, or switch between Wi-Fi and mobile data."
                     msg.contains("age", true) && msg.contains("restrict", true) ->
                         "This video is age-restricted."
@@ -290,6 +292,20 @@ class PlayerViewModel : ViewModel() {
             }
         }
     }
+
+    private fun isBotCheck(msg: String) = msg.contains("not a bot", true) || msg.contains("LOGIN_REQUIRED")
+
+    /** The bot check is sometimes a one-off, so give it one quiet second try. */
+    private suspend fun streamWithRetry(url: String): StreamInfo =
+        try {
+            AppGraph.repo.stream(url)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (!isBotCheck(e.message.orEmpty())) throw e
+            delay(1500)
+            AppGraph.repo.stream(url)
+        }
 
     private fun play(i: StreamInfo, startMs: Long) {
         val choice = StreamPicker.pick(i, quality)
@@ -305,18 +321,61 @@ class PlayerViewModel : ViewModel() {
         player.play()
     }
 
+    var commentsError by mutableStateOf<String?>(null)
+        private set
+    /** Loaded replies per comment id. */
+    val replies = androidx.compose.runtime.mutableStateMapOf<String, List<Comment>>()
+    val repliesLoading = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+
     fun loadComments(forUrl: String? = null) {
         val url = forUrl ?: info?.url ?: current?.url ?: return
         if (commentsLoading) return
         if (comments.isNotEmpty() && commentsNext == null) return
         commentsLoading = true
+        commentsError = null
         viewModelScope.launch {
-            runCatching { AppGraph.repo.comments(url, commentsNext) }.onSuccess {
-                comments = comments + it.items
-                commentsNext = it.next
-            }
+            runCatching { AppGraph.repo.comments(url, commentsNext) }
+                .onSuccess {
+                    comments = (comments + it.items).distinctBy { c -> c.id.ifEmpty { c.author + c.html } }
+                    commentsNext = it.next
+                }
+                .onFailure { commentsError = NetworkInfo.friendlyError(it.message) }
             commentsLoading = false
         }
+    }
+
+    fun toggleReplies(c: Comment) {
+        if (replies.containsKey(c.id)) { replies.remove(c.id); return }
+        val page = c.repliesPage ?: return
+        val url = info?.url ?: current?.url ?: return
+        repliesLoading[c.id] = true
+        viewModelScope.launch {
+            runCatching { AppGraph.repo.replies(url, page) }.onSuccess { replies[c.id] = it.items }
+            repliesLoading.remove(c.id)
+        }
+    }
+
+    /** Posts a comment (or a reply when [to] is set). Returns an error message or null. */
+    suspend fun post(text: String, to: Comment?): String? {
+        val id = info?.id ?: current?.id ?: return "No video"
+        if (!store.signedIn) return "Sign in to comment"
+        return runCatching {
+            if (to == null) AppGraph.account.postComment(id, text) else AppGraph.account.replyToComment(id, to.id, text)
+        }.fold(
+            onSuccess = {
+                val mine = Comment(
+                    id = "local-${System.currentTimeMillis()}",
+                    author = store.account.value?.name ?: "You",
+                    avatar = store.account.value?.avatar,
+                    html = text.replace("<", "&lt;"),
+                    likes = 0, date = "just now", replies = 0, pinned = false, hearted = false,
+                )
+                if (to == null) comments = listOf(mine) + comments
+                else replies[to.id] = (replies[to.id] ?: emptyList()) + mine
+                null
+            },
+            onFailure = { it.message ?: "Couldn't post" },
+        )
     }
 
     val hasMoreComments get() = commentsNext != null

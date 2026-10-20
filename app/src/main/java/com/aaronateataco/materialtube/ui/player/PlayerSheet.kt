@@ -53,6 +53,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ClosedCaption
@@ -83,7 +88,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -98,6 +102,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.input.pointer.pointerInput
@@ -218,8 +228,10 @@ fun PlayerSheet(
         }
     }
 
-    val p = vm.expand.value
-    val ambient = AppGraph.store.settings.collectAsState().value.ambientMode
+    // The spring animation can briefly overshoot 0..1; sizes and paddings must never go negative.
+    val p = vm.expand.value.coerceIn(0f, 1f)
+    val ambient = AppGraph.store.settings.collectAsState().value.ambientMode &&
+        MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val isFullscreen = vm.fullscreen || (landscape && p > 0.99f)
     FullscreenEffect(isFullscreen, vm)
 
@@ -326,9 +338,19 @@ fun PlayerSheet(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(statusPad + videoH + 120.dp)
-                        .graphicsLayer { alpha = 0.55f * p }
-                        .blur(90.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                        .height(statusPad + videoH + 64.dp)
+                        .graphicsLayer {
+                            alpha = 0.32f * p
+                            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                        }
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                Brush.verticalGradient(0.55f to Color.Black, 1f to Color.Transparent),
+                                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                            )
+                        }
+                        .blur(70.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
                 )
             }
             Column(Modifier.fillMaxSize()) {
@@ -1051,9 +1073,11 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                 }
             }
             item(key = "actions") {
+              CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item { LikePill(vm) }
                     item { ActionChip(Icons.Rounded.Share, "Share") { shareVideo(context, com.aaronateataco.materialtube.data.FeedFilter.shareUrl(item.id, item.url)) } }
@@ -1066,6 +1090,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                         }
                     }
                 }
+              }
             }
             if (!settings.hideComments) item(key = "comments") {
                 CommentsTeaser(vm) { showComments = true }
@@ -1099,8 +1124,8 @@ private fun LikePill(vm: PlayerViewModel) {
     val info = vm.info
     val likes = info?.likeCount?.takeIf { it >= 0 } ?: vm.votes?.likes
     val dislikes = vm.votes?.dislikes
-    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.height(36.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight()) {
             RateButton(
                 icon = if (vm.rating == Rating.LIKE) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
                 label = likes?.let(::formatCount).orEmpty(),
@@ -1134,7 +1159,8 @@ private fun RateButton(icon: ImageVector, label: String, active: Boolean, onClic
         Modifier
             .clip(RoundedCornerShape(50))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .fillMaxHeight()
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -1178,9 +1204,9 @@ private fun ActionChip(icon: ImageVector, label: String, onClick: () -> Unit) {
         shape = RoundedCornerShape(corner),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         interactionSource = source,
-        modifier = Modifier.pressScale(source, 0.94f),
+        modifier = Modifier.height(36.dp).pressScale(source, 0.94f),
     ) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxHeight().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, Modifier.size(20.dp))
             Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
         }
@@ -1192,7 +1218,7 @@ private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
     val first = vm.comments.firstOrNull()
     Surface(
         onClick = onOpen,
-        enabled = first != null,
+        enabled = first != null || AppGraph.store.signedIn,
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1219,8 +1245,14 @@ private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                vm.commentsError != null -> Text(
+                    vm.commentsError!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
                 else -> Text(
-                    "Comments are turned off or unavailable",
+                    "Comments are turned off for this video",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -1313,31 +1345,116 @@ private fun Stat(value: String, label: String) {
 
 @Composable
 private fun CommentsSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
-        Text(
-            "Comments",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        HorizontalDivider(Modifier.padding(top = 12.dp))
-        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
-            itemsIndexed(vm.comments) { i, c ->
-                CommentRow(c, onLink)
-                if (i >= vm.comments.size - 4 && vm.hasMoreComments) {
-                    LaunchedEffect(i) { vm.loadComments() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var replyTo by remember { mutableStateOf<Comment?>(null) }
+    var draft by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    val signedIn = AppGraph.store.signedIn
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxHeight(0.92f)) {
+            Text(
+                "Comments",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            HorizontalDivider(Modifier.padding(top = 12.dp))
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+                itemsIndexed(vm.comments, key = { i, c -> c.id.ifEmpty { "c$i" } }) { i, c ->
+                    CommentRow(c, onLink, onReply = if (signedIn) ({ replyTo = c }) else null)
+                    if (c.repliesPage != null || vm.replies.containsKey(c.id)) {
+                        val open = vm.replies.containsKey(c.id)
+                        TextButton(
+                            onClick = { vm.toggleReplies(c) },
+                            modifier = Modifier.padding(start = 52.dp),
+                        ) {
+                            Icon(if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp))
+                            Text(
+                                if (open) "Hide replies" else "${c.replies.coerceAtLeast(1)} ${if (c.replies == 1) "reply" else "replies"}",
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                        if (vm.repliesLoading[c.id] == true) {
+                            LoadingIndicator(Modifier.padding(start = 60.dp).size(28.dp))
+                        }
+                        androidx.compose.animation.AnimatedVisibility(open) {
+                            Column(Modifier.padding(start = 40.dp)) {
+                                vm.replies[c.id].orEmpty().forEach { r ->
+                                    CommentRow(r, onLink, onReply = if (signedIn) ({ replyTo = c }) else null, small = true)
+                                }
+                            }
+                        }
+                    }
+                    if (i >= vm.comments.size - 4 && vm.hasMoreComments) {
+                        LaunchedEffect(i) { vm.loadComments() }
+                    }
+                }
+                if (vm.commentsLoading) item { CenterLoading() }
+                vm.commentsError?.let { err ->
+                    item { ErrorState(err, { vm.loadComments() }) }
                 }
             }
-            if (vm.commentsLoading) item { CenterLoading() }
+            HorizontalDivider()
+            // Compose box, like the official app.
+            if (signedIn) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).navigationBarsPadding().imePadding()) {
+                    replyTo?.let { r ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Replying to ${r.author}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { replyTo = null }) { Icon(Icons.Rounded.Close, "Cancel reply", Modifier.size(18.dp)) }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(AppGraph.store.account.value?.avatar, 32.dp)
+                        androidx.compose.material3.OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            placeholder = { Text(if (replyTo != null) "Add a reply…" else "Add a comment…") },
+                            maxLines = 4,
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        )
+                        androidx.compose.material3.FilledIconButton(
+                            enabled = draft.isNotBlank() && !sending,
+                            onClick = {
+                                sending = true
+                                scope.launch {
+                                    val err = vm.post(draft.trim(), replyTo)
+                                    sending = false
+                                    if (err == null) {
+                                        draft = ""; replyTo = null
+                                        toast(context, "Posted")
+                                    } else toast(context, err)
+                                }
+                            },
+                        ) {
+                            if (sending) LoadingIndicator(Modifier.size(24.dp)) else Icon(Icons.AutoMirrored.Rounded.Send, "Post")
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    "Sign in to comment and reply",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp).navigationBarsPadding(),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CommentRow(c: Comment, onLink: (String) -> Unit) {
+private fun CommentRow(c: Comment, onLink: (String) -> Unit, onReply: (() -> Unit)?, small: Boolean = false) {
     val text = rememberHtml(c.html, onLink)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Avatar(c.avatar, 28.dp)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (small) 6.dp else 10.dp)) {
+        Avatar(c.avatar, if (small) 24.dp else 28.dp)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (c.pinned) Icon(Icons.Rounded.PushPin, "Pinned", Modifier.size(14.dp).padding(end = 2.dp))
@@ -1350,7 +1467,7 @@ private fun CommentRow(c: Comment, onLink: (String) -> Unit) {
                 )
             }
             Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
-            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.ThumbUp, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (c.likes > 0) {
                     Text(
@@ -1360,15 +1477,20 @@ private fun CommentRow(c: Comment, onLink: (String) -> Unit) {
                         modifier = Modifier.padding(start = 6.dp),
                     )
                 }
+                Icon(Icons.Outlined.ThumbDown, null, Modifier.padding(start = 16.dp).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (c.hearted) {
-                    Icon(Icons.Rounded.Favorite, "Hearted by creator", Modifier.padding(start = 12.dp).size(16.dp), tint = Color(0xFFE53935))
+                    Icon(Icons.Rounded.Favorite, "Hearted by creator", Modifier.padding(start = 16.dp).size(16.dp), tint = Color(0xFFE53935))
                 }
-                if (c.replies > 0) {
+                if (onReply != null) {
                     Text(
-                        "${c.replies} ${if (c.replies == 1) "reply" else "replies"}",
+                        "Reply",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 16.dp),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onReply)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
             }

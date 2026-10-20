@@ -58,8 +58,24 @@ class YouTubeRepo {
         runCatching { yt.suggestionExtractor.suggestionList(query) }.getOrDefault(emptyList())
     }
 
+    /** Recently fetched video details, so opening a preloaded video is instant. Stream links last a few hours. */
+    private val streamCache = object : LinkedHashMap<String, Pair<Long, StreamInfo>>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, StreamInfo>>?) = size > 60
+    }
+
     suspend fun stream(url: String): StreamInfo = withContext(Dispatchers.IO) {
-        StreamInfo.getInfo(yt, url)
+        val id = videoIdOf(url)
+        synchronized(streamCache) {
+            streamCache[id]?.let { (at, info) -> if (System.currentTimeMillis() - at < 2 * 3600_000L) return@withContext info }
+        }
+        val info = StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=$id")
+        synchronized(streamCache) { streamCache[id] = System.currentTimeMillis() to info }
+        info
+    }
+
+    /** Fetch details in the background; errors are ignored. */
+    suspend fun prefetch(ids: List<String>) = coroutineScope {
+        ids.map { id -> async { runCatching { stream("https://www.youtube.com/watch?v=$id") } } }.awaitAll()
     }
 
     suspend fun channel(url: String): ChannelDetails = withContext(Dispatchers.IO) {
@@ -122,7 +138,14 @@ class YouTubeRepo {
         }
     }
 
+    suspend fun replies(url: String, page: Page): Paged<Comment> = withContext(Dispatchers.IO) {
+        val more = CommentsInfo.getMoreItems(yt, url, page)
+        Paged(more.items.filterIsInstance<CommentsInfoItem>().map { it.toComment() }, more.nextPage.orNull())
+    }
+
     private fun CommentsInfoItem.toComment() = Comment(
+        id = commentId ?: "",
+        repliesPage = replies?.takeIf { Page.isValid(it) },
         author = uploaderName ?: "",
         avatar = uploaderAvatars.smallUrl(),
         html = commentText?.content ?: "",

@@ -160,6 +160,12 @@ fun SettingsScreen(
         }
         if (!s.shortsDisabled) {
             item {
+                val keys = listOf("youtube", "tiktok", "reels")
+                Segmented("Shorts layout", listOf("YouTube", "TikTok", "Reels"), keys.indexOf(s.shortsLayout).coerceAtLeast(0)) { i ->
+                    update { it.copy(shortsLayout = keys[i]) }
+                }
+            }
+            item {
                 val opts = listOf(0, 5, 10, 20, 50).map { (if (it == 0) "No limit" else "$it Shorts") to it.toString() }
                 Link("Limit per visit", if (s.shortsSessionLimit == 0) "No limit" else "${s.shortsSessionLimit} Shorts, then a break screen") {
                     choice = Choice("Shorts per visit", opts, s.shortsSessionLimit.toString()) { v -> update { it.copy(shortsSessionLimit = v.toInt()) } }
