@@ -34,23 +34,36 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
 
     private fun version(): String = "2.20260930.01.00"
 
+    /** SAPISIDHASH auth, built the same way yt-dlp and YouTube's own web app do it. */
     private fun authHeader(cookie: String): String? {
-        val parts = cookie.split(";").map { it.trim() }
-        val sapisid = parts.firstOrNull { it.startsWith("SAPISID=") }?.substringAfter("=")
-            ?: parts.firstOrNull { it.startsWith("__Secure-3PAPISID=") }?.substringAfter("=")
-            ?: return null
-        val ts = System.currentTimeMillis() / 1000
-        val hash = MessageDigest.getInstance("SHA-1")
-            .digest("$ts $sapisid $origin".toByteArray())
-            .joinToString("") { "%02x".format(it) }
-        return "SAPISIDHASH ${ts}_$hash"
+        val jar = cookie.split(";").map { it.trim() }.associate { it.substringBefore("=") to it.substringAfter("=", "") }
+        val sapisid = jar["SAPISID"]?.takeIf { it.isNotEmpty() } ?: jar["__Secure-3PAPISID"]
+        val schemes = listOf(
+            "SAPISIDHASH" to sapisid,
+            "SAPISID1PHASH" to jar["__Secure-1PAPISID"],
+            "SAPISID3PHASH" to jar["__Secure-3PAPISID"],
+        )
+        val ts = (System.currentTimeMillis() / 1000).toString()
+        val parts = schemes.mapNotNull { (scheme, sid) ->
+            if (sid.isNullOrEmpty()) return@mapNotNull null
+            val hash = MessageDigest.getInstance("SHA-1")
+                .digest("$ts $sid $origin".toByteArray())
+                .joinToString("") { "%02x".format(it) }
+            "$scheme ${ts}_$hash"
+        }
+        return parts.takeIf { it.isNotEmpty() }?.joinToString(" ")
     }
 
-    private suspend fun post(endpoint: String, extra: JsonObjectBuilder.() -> Unit = {}): JsonObject =
+    private suspend fun post(
+        endpoint: String,
+        useChannel: Boolean = true,
+        extra: JsonObjectBuilder.() -> Unit = {},
+    ): JsonObject =
         withContext(Dispatchers.IO) {
             val cookie = store.cookie.value ?: throw IOException("Not signed in")
             val v = version()
             val locale = Locale.getDefault()
+            val pageId = if (useChannel) store.pageId.value else null
             val body = buildJsonObject {
                 putJsonObject("context") {
                     putJsonObject("client") {
@@ -59,11 +72,13 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
                         put("hl", locale.language.ifBlank { "en" })
                         put("gl", locale.country.ifBlank { "GB" })
                     }
+                    if (pageId != null) putJsonObject("user") { put("onBehalfOfUser", pageId) }
                 }
                 extra()
             }
             val request = Request.Builder()
                 .url("$origin/youtubei/v1/$endpoint?prettyPrint=false")
+                .apply { if (pageId != null) header("X-Goog-PageId", pageId) }
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
                 .header("Cookie", cookie)
                 .header("Authorization", authHeader(cookie) ?: "")
@@ -102,6 +117,15 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         )
         store.setAccount(account)
         return account
+    }
+
+    /** Every channel on this Google account (main channel and Brand Account channels). */
+    suspend fun channels(): List<ChannelChoice> {
+        val root = post("account/accounts_list", useChannel = false) {
+            put("requestType", "ACCOUNTS_LIST_REQUEST_TYPE_CHANNEL_SWITCHER")
+            put("callCircumstance", "SWITCHING_USERS_FULL")
+        }
+        return Yti.accountItems(root)
     }
 
     // -------- Feeds --------
@@ -152,6 +176,15 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         }
     }
 }
+
+/** One channel you can use YouTube as. [pageId] is null for the account's main channel. */
+data class ChannelChoice(
+    val name: String,
+    val handle: String?,
+    val avatar: String?,
+    val pageId: String?,
+    val selected: Boolean,
+)
 
 /** Forgiving reader for InnerTube's deeply nested JSON. */
 object Yti {
@@ -244,6 +277,25 @@ object Yti {
             item != null
         }
         return out
+    }
+
+    fun accountItems(root: JsonElement): List<ChannelChoice> {
+        val out = mutableListOf<ChannelChoice>()
+        walk(root) { k, v ->
+            if (k == "accountItem") {
+                if ((v["isDisabled"] as? JsonPrimitive)?.content != "true") {
+                    out += ChannelChoice(
+                        name = text(v["accountName"]).orEmpty(),
+                        handle = text(v["channelHandle"]) ?: text(v["accountByline"]),
+                        avatar = thumb(v["accountPhoto"]),
+                        pageId = findString(v["serviceEndpoint"], "pageId"),
+                        selected = (v["isSelected"] as? JsonPrimitive)?.content == "true",
+                    )
+                }
+                true
+            } else false
+        }
+        return out.distinctBy { it.pageId ?: "main:${it.name}" }
     }
 
     fun channels(root: JsonElement): List<Sub> {

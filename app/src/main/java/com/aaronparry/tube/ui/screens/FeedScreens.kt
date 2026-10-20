@@ -47,6 +47,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.MaterialShapes
+import com.aaronparry.tube.ui.components.CookieAvatar
+import com.aaronparry.tube.ui.components.ShapeIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -185,9 +190,18 @@ fun HomeScreen(
             )
         },
     ) { pad ->
+        val ptr = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = vm.refreshing,
             onRefresh = vm::refresh,
+            state = ptr,
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(
+                    state = ptr,
+                    isRefreshing = vm.refreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
             modifier = Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
         ) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(LocalBottomPadding.current)) {
@@ -278,9 +292,18 @@ fun SubscriptionsScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = { TopAppBar(title = { Text("Subscriptions") }, scrollBehavior = scroll) },
     ) { pad ->
+        val ptr = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = vm.refreshing,
             onRefresh = { vm.load(true) },
+            state = ptr,
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(
+                    state = ptr,
+                    isRefreshing = vm.refreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
             modifier = Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
         ) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(LocalBottomPadding.current)) {
@@ -356,6 +379,7 @@ fun YouScreen(
     onSettings: () -> Unit,
     onSignIn: () -> Unit,
     onPlaylist: (String) -> Unit,
+    onSwitchChannel: () -> Unit,
     vm: YouViewModel = viewModel(),
 ) {
     val account by AppGraph.store.account.collectAsState()
@@ -381,17 +405,20 @@ fun YouScreen(
             item(key = "header") {
                 if (signedIn) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(account?.avatar, 72.dp)
+                        CookieAvatar(account?.avatar, 80.dp)
                         Column(Modifier.padding(start = 16.dp).weight(1f)) {
                             Text(account?.name ?: "Signed in", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             account?.handle?.let {
                                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            TextButton(onClick = onSwitchChannel, contentPadding = PaddingValues(0.dp)) {
+                                Text("Switch channel")
+                            }
                         }
                     }
                 } else {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Rounded.AccountCircle, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ShapeIcon(Icons.Rounded.AccountCircle, 112.dp, MaterialShapes.Clover8Leaf, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
                         Text("Enjoy your favourite videos", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
                         Text(
                             "Sign in to see your feed, subscriptions, likes and Watch later.",

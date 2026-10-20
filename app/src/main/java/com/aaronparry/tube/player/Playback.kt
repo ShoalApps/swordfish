@@ -27,6 +27,7 @@ import com.aaronparry.tube.MainActivity
 import com.aaronparry.tube.data.NewPipeDownloader
 import com.aaronparry.tube.data.bestUrl
 import org.schabi.newpipe.extractor.MediaFormat
+import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
@@ -63,41 +64,45 @@ class YtDataSource(private val upstream: HttpDataSource) : DataSource by upstrea
 
     override fun open(dataSpec: DataSpec): Long {
         val uri = dataSpec.uri
-        val isYtVideo = uri.host?.endsWith("googlevideo.com") == true &&
-            uri.getQueryParameter("itag") != null
-        if (!isYtVideo) return upstream.open(dataSpec)
+        val isPlayback = uri.host?.endsWith("googlevideo.com") == true &&
+            uri.path?.startsWith("/videoplayback") == true
+        if (!isPlayback) return upstream.open(dataSpec)
 
-        val client = uri.getQueryParameter("c")?.uppercase().orEmpty()
-        val isAndroid = client.startsWith("ANDROID")
-        val isIos = client.startsWith("IOS")
+        val url = uri.toString()
+        var builder = uri.buildUpon()
+        if (!url.contains("&rn=")) builder = builder.appendQueryParameter("rn", (requestNumber++).toString())
 
-        val start = dataSpec.position
-        val end = if (dataSpec.length != C.LENGTH_UNSET.toLong()) (start + dataSpec.length - 1).toString() else ""
-        val newUri = uri.buildUpon()
-            .appendQueryParameter("range", "$start-$end")
-            .appendQueryParameter("rn", (requestNumber++).toString())
-            .build()
+        // Progressive streams take their byte range in the URL; HLS segments don't need one.
+        val progressive = uri.getQueryParameter("itag") != null
+        val spec = dataSpec.buildUpon()
+        if (progressive) {
+            val start = dataSpec.position
+            val end = if (dataSpec.length != C.LENGTH_UNSET.toLong()) (start + dataSpec.length - 1).toString() else ""
+            builder = builder.appendQueryParameter("range", "$start-$end")
+            spec.setPosition(0).setLength(C.LENGTH_UNSET.toLong())
+        }
 
         val headers = HashMap(dataSpec.httpRequestHeaders)
-        when {
-            isAndroid -> headers["User-Agent"] = ANDROID_UA
-            isIos -> headers["User-Agent"] = IOS_UA
-            else -> {
-                headers["User-Agent"] = NewPipeDownloader.USER_AGENT
-                headers["Origin"] = "https://www.youtube.com"
-                headers["Referer"] = "https://www.youtube.com/"
-            }
+        headers["User-Agent"] = if (YoutubeParsingHelper.isVisionOsStreamingUrl(url)) {
+            YoutubeParsingHelper.getVisionOsUserAgent(null)
+        } else {
+            NewPipeDownloader.USER_AGENT
         }
+        if (YoutubeParsingHelper.isWebStreamingUrl(url)) {
+            headers["Origin"] = "https://www.youtube.com"
+            headers["Referer"] = "https://www.youtube.com"
+            headers["Sec-Fetch-Dest"] = "empty"
+            headers["Sec-Fetch-Mode"] = "cors"
+            headers["Sec-Fetch-Site"] = "cross-site"
+        }
+        headers["TE"] = "trailers"
 
-        val builder = dataSpec.buildUpon()
-            .setUri(newUri)
-            .setPosition(0)
-            .setLength(C.LENGTH_UNSET.toLong())
+        // YouTube's video servers expect a POST with this tiny body, like the official apps send.
+        spec.setUri(builder.build())
             .setHttpRequestHeaders(headers)
-        if (isAndroid || isIos) {
-            builder.setHttpMethod(DataSpec.HTTP_METHOD_POST).setHttpBody(byteArrayOf(0x78, 0x00))
-        }
-        return upstream.open(builder.build())
+            .setHttpMethod(DataSpec.HTTP_METHOD_POST)
+            .setHttpBody(byteArrayOf(0x78, 0x00))
+        return upstream.open(spec.build())
     }
 
     class Factory : DataSource.Factory {
@@ -112,10 +117,6 @@ class YtDataSource(private val upstream: HttpDataSource) : DataSource by upstrea
 
     companion object {
         private var requestNumber = 0
-        private const val ANDROID_UA =
-            "com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip"
-        private const val IOS_UA =
-            "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
     }
 }
 

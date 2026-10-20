@@ -153,6 +153,12 @@ import com.aaronparry.tube.data.Comment
 import com.aaronparry.tube.player.Rating
 import com.aaronparry.tube.ui.Links
 import com.aaronparry.tube.ui.components.CenterLoading
+import com.aaronparry.tube.ui.components.PolygonShape
+import com.aaronparry.tube.ui.components.rememberMorphShape
+import com.aaronparry.tube.ui.components.rememberSpin
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import com.aaronparry.tube.ui.components.LaunchOrigin
 import com.aaronparry.tube.ui.components.pressScale
 import com.aaronparry.tube.ui.components.shareVideo
@@ -377,7 +383,10 @@ private fun MiniInfo(vm: PlayerViewModel, modifier: Modifier) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        IconButton(onClick = vm::togglePlay) {
+        FilledTonalIconButton(
+            onClick = vm::togglePlay,
+            shape = rememberMorphShape(MaterialShapes.Circle, MaterialShapes.Cookie6Sided, if (vm.isPlaying) 1f else 0f, 60f),
+        ) {
             AnimatedContent(vm.isPlaying, transitionSpec = { scaleIn() + fadeIn() togetherWith scaleOut() + fadeOut() }, label = "mini") {
                 Icon(if (it) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (it) "Pause" else "Play")
             }
@@ -583,22 +592,26 @@ private fun Modifier.pointerInputTaps(onTap: () -> Unit, onDoubleTap: (left: Boo
 /** Big play button whose shape morphs between circle (paused) and rounded square (playing). */
 @Composable
 private fun PlayPauseButton(playing: Boolean, buffering: Boolean, onClick: () -> Unit) {
-    val corner by animateDpAsState(
-        if (playing) 22.dp else 36.dp,
-        MaterialTheme.motionScheme.fastSpatialSpec(),
-        label = "playShape",
+    val spin = if (buffering) rememberSpin(3_000) else 0f
+    val shape = rememberMorphShape(
+        from = MaterialShapes.Cookie9Sided,
+        to = MaterialShapes.Square,
+        target = if (playing) 1f else 0f,
+        rotateBy = 90f,
     )
+    val source = remember { MutableInteractionSource() }
     FilledIconButton(
         onClick = onClick,
-        shape = RoundedCornerShape(corner),
+        interactionSource = source,
+        shape = shape,
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ),
-        modifier = Modifier.size(72.dp),
+        modifier = Modifier.size(76.dp).pressScale(source, 0.88f).graphicsLayer { rotationZ = spin },
     ) {
         if (buffering) {
-            LoadingIndicator(Modifier.size(40.dp))
+            LoadingIndicator(Modifier.size(40.dp).graphicsLayer { rotationZ = -spin })
         } else {
             AnimatedContent(
                 playing,
@@ -877,12 +890,16 @@ private fun LikePill(vm: PlayerViewModel) {
 @Composable
 private fun RateButton(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit) {
     val pop = remember { Animatable(1f) }
+    val bloom = remember { Animatable(0f) }
     LaunchedEffect(active) {
         if (active) {
+            launch { bloom.snapTo(0f); bloom.animateTo(1f, tween(520)) }
             pop.animateTo(1.4f, tween(110))
             pop.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 500f))
         }
     }
+    val burstColor = MaterialTheme.colorScheme.primary
+    val burstShape = remember { PolygonShape(MaterialShapes.SoftBurst) }
     Row(
         Modifier
             .clip(RoundedCornerShape(50))
@@ -890,12 +907,29 @@ private fun RateButton(icon: ImageVector, label: String, active: Boolean, onClic
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            icon,
-            null,
-            Modifier.size(20.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value },
-            tint = if (active) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            if (bloom.value in 0.001f..0.999f) {
+                Box(
+                    Modifier
+                        .size(20.dp)
+                        .graphicsLayer {
+                            val b = bloom.value
+                            scaleX = 0.6f + 1.6f * b
+                            scaleY = 0.6f + 1.6f * b
+                            rotationZ = 120f * b
+                            alpha = (1f - b) * 0.5f
+                        }
+                        .clip(burstShape)
+                        .background(burstColor),
+                )
+            }
+            Icon(
+                icon,
+                null,
+                Modifier.size(20.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+                tint = if (active) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            )
+        }
         AnimatedContent(label, label = "count") { text ->
             if (text.isNotEmpty()) {
                 Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
@@ -907,12 +941,14 @@ private fun RateButton(icon: ImageVector, label: String, active: Boolean, onClic
 @Composable
 private fun ActionChip(icon: ImageVector, label: String, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val corner by animateDpAsState(if (pressed) 10.dp else 20.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "chip")
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(50),
+        shape = RoundedCornerShape(corner),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         interactionSource = source,
-        modifier = Modifier.pressScale(source, 0.92f),
+        modifier = Modifier.pressScale(source, 0.94f),
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, Modifier.size(20.dp))
@@ -947,7 +983,7 @@ private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
                         modifier = Modifier.padding(start = 10.dp),
                     )
                 }
-                vm.commentsLoading || vm.info == null -> Text(
+                vm.commentsLoading -> Text(
                     "Loading comments…",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

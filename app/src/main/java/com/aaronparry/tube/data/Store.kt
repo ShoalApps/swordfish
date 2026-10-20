@@ -45,6 +45,10 @@ class Store(context: Context) {
     private val _cookie = MutableStateFlow(prefs.getString("cookie", null))
     val cookie: StateFlow<String?> = _cookie
 
+    private val _pageId = MutableStateFlow(prefs.getString("pageId", null))
+    /** Which Brand Account channel to act as; null means the main channel. */
+    val pageId: StateFlow<String?> = _pageId
+
     private val _account = MutableStateFlow(load<Account>("account"))
     val account: StateFlow<Account?> = _account
 
@@ -71,6 +75,16 @@ class Store(context: Context) {
             list + incoming.filterNot { it.url in known }
         }
         save("subs", _subs.value)
+    }
+
+    fun replaceSubs(list: List<Sub>) {
+        _subs.value = list
+        save("subs", list)
+    }
+
+    fun setPageId(id: String?) {
+        _pageId.value = id
+        prefs.edit().putString("pageId", id).apply()
     }
 
     fun addHistory(item: VideoItem) {

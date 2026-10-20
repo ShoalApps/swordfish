@@ -52,7 +52,7 @@ import com.aaronparry.tube.ui.components.listPadding
 private val qualityOptions = listOf(2160, 1440, 1080, 720, 480, 360, 240, 144)
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onSignIn: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onSignIn: () -> Unit, onSwitchChannel: () -> Unit) {
     val store = AppGraph.store
     val s by store.settings.collectAsState()
     val account by store.account.collectAsState()
@@ -93,6 +93,14 @@ fun SettingsScreen(onBack: () -> Unit, onSignIn: () -> Unit) {
                 }
             }
             if (signedIn) {
+                item {
+                    ListItem(
+                        headlineContent = { Text("Switch channel") },
+                        supportingContent = { Text("Use a different channel on this Google account") },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(onClick = onSwitchChannel),
+                    )
+                }
                 item {
                     ListItem(
                         headlineContent = { Text("Import subscriptions from YouTube") },

@@ -359,7 +359,7 @@ fun ChannelScreen(
                             Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Avatar(d.avatar, 72.dp)
+                            com.aaronparry.tube.ui.components.CookieAvatar(d.avatar, 80.dp)
                             Column(Modifier.padding(start = 16.dp).weight(1f)) {
                                 Text(d.name, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
                                 if (d.subscribers >= 0) {

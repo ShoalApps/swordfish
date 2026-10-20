@@ -57,6 +57,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -398,7 +399,12 @@ private fun ShortAction(icon: ImageVector, label: String, active: Boolean, onCli
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             onClick = onClick,
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = com.aaronparry.tube.ui.components.rememberMorphShape(
+                androidx.compose.material3.MaterialShapes.Circle,
+                androidx.compose.material3.MaterialShapes.Cookie9Sided,
+                if (active) 1f else 0f,
+                rotateBy = 40f,
+            ),
             color = Color.White.copy(alpha = if (active) 0.9f else 0.18f),
             modifier = Modifier.size(48.dp).graphicsLayer { scaleX = scale; scaleY = scale },
         ) {
@@ -479,3 +485,87 @@ fun LoginScreen(onDone: () -> Unit, onBack: () -> Unit) {
         }
     }
 }
+
+// ---------------- Choose a channel ----------------
+
+class ChannelPickerViewModel : ViewModel() {
+    var channels by mutableStateOf<List<com.aaronparry.tube.data.ChannelChoice>>(emptyList())
+        private set
+    var loading by mutableStateOf(true)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+
+    init { load() }
+
+    fun load() {
+        loading = true; error = null
+        viewModelScope.launch {
+            runCatching { AppGraph.account.channels() }
+                .onSuccess { channels = it }
+                .onFailure { error = it.message ?: "Couldn't load your channels" }
+            loading = false
+        }
+    }
+}
+
+@Composable
+fun ChannelPickerScreen(onDone: () -> Unit, onBack: () -> Unit, vm: ChannelPickerViewModel = viewModel()) {
+    val current by AppGraph.store.pageId.collectAsStateCompat()
+    LaunchedEffect(vm.channels) {
+        // Only one channel on this account: nothing to choose.
+        if (vm.channels.size == 1) {
+            AppGraph.selectChannel(vm.channels.first())
+            onDone()
+        }
+    }
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            TopAppBar(
+                title = { Text("Choose a channel") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+            )
+        },
+    ) { pad ->
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding())) {
+            when {
+                vm.loading -> item { com.aaronparry.tube.ui.components.CenterLoading() }
+                vm.error != null -> item { ErrorState(vm.error!!, vm::load) }
+                else -> {
+                    item {
+                        Text(
+                            "Pick which of your channels Tube should use for your feed, subscriptions and likes.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                    items(vm.channels.size) { i ->
+                        val c = vm.channels[i]
+                        val isCurrent = c.pageId == current
+                        androidx.compose.material3.ListItem(
+                            headlineContent = { Text(c.name, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal) },
+                            supportingContent = { c.handle?.let { Text(it) } },
+                            leadingContent = {
+                                if (isCurrent) com.aaronparry.tube.ui.components.CookieAvatar(c.avatar, 52.dp)
+                                else Avatar(c.avatar, 48.dp)
+                            },
+                            trailingContent = { androidx.compose.material3.RadioButton(selected = isCurrent, onClick = null) },
+                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier
+                                .clickable {
+                                    AppGraph.selectChannel(c)
+                                    onDone()
+                                }
+                                .then(Modifier),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun <T> kotlinx.coroutines.flow.StateFlow<T>.collectAsStateCompat() = this.collectAsState()

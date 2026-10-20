@@ -60,6 +60,7 @@ import com.aaronparry.tube.ui.components.LocalBottomPadding
 import com.aaronparry.tube.ui.player.PlayerSheet
 import com.aaronparry.tube.ui.player.VideoSurface
 import com.aaronparry.tube.ui.screens.ChannelScreen
+import com.aaronparry.tube.ui.screens.ChannelPickerScreen
 import com.aaronparry.tube.ui.screens.HomeScreen
 import com.aaronparry.tube.ui.screens.LoginScreen
 import com.aaronparry.tube.ui.screens.PlaylistScreen
@@ -192,6 +193,7 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
                             onSettings = { nav.navigate("settings") },
                             onSignIn = { nav.navigate("login") },
                             onPlaylist = { id -> nav.navigate("playlist/$id") },
+                            onSwitchChannel = { nav.navigate("channels") },
                         )
                     }
                     composable("search") {
@@ -209,10 +211,20 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
                         )
                     }
                     composable("settings") {
-                        SettingsScreen(onBack = { nav.popBackStack() }, onSignIn = { nav.navigate("login") })
+                        SettingsScreen(
+                            onBack = { nav.popBackStack() },
+                            onSignIn = { nav.navigate("login") },
+                            onSwitchChannel = { nav.navigate("channels") },
+                        )
                     }
                     composable("login") {
-                        LoginScreen(onDone = { nav.popBackStack() }, onBack = { nav.popBackStack() })
+                        LoginScreen(
+                            onDone = { nav.navigate("channels") { popUpTo("login") { inclusive = true } } },
+                            onBack = { nav.popBackStack() },
+                        )
+                    }
+                    composable("channels") {
+                        ChannelPickerScreen(onDone = { nav.popBackStack() }, onBack = { nav.popBackStack() })
                     }
                 }
             }

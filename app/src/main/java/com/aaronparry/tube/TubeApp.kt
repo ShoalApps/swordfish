@@ -64,17 +64,28 @@ object AppGraph {
     }
 
     /** After signing in: load the profile and pull in YouTube subscriptions. */
-    fun syncAccount() {
+    fun syncAccount(replaceSubs: Boolean = false) {
         if (!store.signedIn) return
         scope.launch {
             runCatching { account.refreshAccount() }
-            runCatching { store.mergeSubs(account.subscriptions()) }
+            runCatching {
+                val subs = account.subscriptions()
+                if (replaceSubs) store.replaceSubs(subs) else store.mergeSubs(subs)
+            }
         }
+    }
+
+    /** Switch which channel on the Google account Tube acts as. */
+    fun selectChannel(choice: com.aaronparry.tube.data.ChannelChoice) {
+        store.setPageId(choice.pageId)
+        store.setAccount(com.aaronparry.tube.data.Account(choice.name, choice.handle, choice.avatar))
+        syncAccount(replaceSubs = true)
     }
 
     fun signOut() {
         store.setCookie(null)
         store.setAccount(null)
+        store.setPageId(null)
         runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null) }
     }
 

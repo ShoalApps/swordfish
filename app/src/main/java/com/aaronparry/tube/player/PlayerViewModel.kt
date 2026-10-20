@@ -202,7 +202,13 @@ class PlayerViewModel : ViewModel() {
         loading = true
         player.stop()
         player.clearMediaItems()
+        val videoId = videoIdOf(url)
         loadJob = viewModelScope.launch {
+            // These don't depend on the stream, so start them straight away.
+            val s = store.settings.value
+            if (s.sponsorBlock) launch { segments = AppGraph.sponsorBlock.segments(videoId, s.sbSkip) }
+            if (s.ryd) launch { votes = AppGraph.ryd.votes(videoId) }
+            launch { loadComments(url) }
             try {
                 val i = AppGraph.repo.stream(url)
                 info = i
@@ -216,15 +222,18 @@ class PlayerViewModel : ViewModel() {
                 store.addHistory(video)
                 play(i, pendingStartMs)
                 pendingStartMs = 0
-
-                val s = store.settings.value
-                if (s.sponsorBlock) launch { segments = AppGraph.sponsorBlock.segments(i.id, s.sbSkip) }
-                if (s.ryd) launch { votes = AppGraph.ryd.votes(i.id) }
-                launch { loadComments() }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                val msg = e.message.orEmpty()
+                error = when {
+                    msg.contains("not a bot", true) || msg.contains("LOGIN_REQUIRED") ->
+                        "YouTube is asking this network to prove it isn't a bot. Try again, or switch between Wi-Fi and mobile data."
+                    msg.contains("age", true) && msg.contains("restrict", true) ->
+                        "This video is age-restricted."
+                    msg.isNotBlank() -> msg
+                    else -> e.javaClass.simpleName
+                }
             } finally {
                 loading = false
             }
@@ -245,8 +254,8 @@ class PlayerViewModel : ViewModel() {
         player.play()
     }
 
-    fun loadComments() {
-        val url = info?.url ?: return
+    fun loadComments(forUrl: String? = null) {
+        val url = forUrl ?: info?.url ?: current?.url ?: return
         if (commentsLoading) return
         if (comments.isNotEmpty() && commentsNext == null) return
         commentsLoading = true

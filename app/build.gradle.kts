@@ -64,6 +64,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.graphics:graphics-shapes:1.0.1")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
@@ -75,8 +76,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.9.2")
     implementation("androidx.media3:media3-session:1.9.2")
 
-    // YouTube backend
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
+    // YouTube backend (same build NewPipe ships; uses the visionOS client to avoid bot checks)
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:8443c91bf4276c326f7b33e30a36d88e0ab94cfe")
 
     // Networking, images, JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
