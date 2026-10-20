@@ -193,6 +193,7 @@ fun SettingsScreen(
         item { Toggle("Autoplay", "Play the next video when one ends", s.autoplayNext) { v -> update { it.copy(autoplayNext = v) } } }
         item { Toggle("Background play", "Keep audio playing with the screen off or app closed", s.backgroundPlay) { v -> update { it.copy(backgroundPlay = v) } } }
         item { Toggle("Picture-in-picture", "Shrink to a floating window when you leave the app", s.autoPip) { v -> update { it.copy(autoPip = v) } } }
+        item { Toggle("Ambient mode", "A soft glow of the video's colours around the player", s.ambientMode) { v -> update { it.copy(ambientMode = v) } } }
 
         item { Section("SponsorBlock") }
         item { Toggle("Skip segments", "Crowd-sourced skipping of sponsors and other filler", s.sponsorBlock) { v -> update { it.copy(sponsorBlock = v) } } }

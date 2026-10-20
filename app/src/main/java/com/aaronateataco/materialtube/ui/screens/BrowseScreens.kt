@@ -26,6 +26,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -104,9 +107,18 @@ class SearchViewModel : ViewModel() {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    /** "", "videos" or "channels" */
+    var filter by mutableStateOf("")
+        private set
     private var next: Page? = null
     private var suggestJob: Job? = null
     private var searchJob: Job? = null
+
+    fun setFilter(f: String) {
+        if (f == filter) return
+        filter = f
+        submitted?.let { submit(it) }
+    }
 
     fun onQuery(q: String) {
         query = q
@@ -123,12 +135,13 @@ class SearchViewModel : ViewModel() {
         if (q.isBlank()) return
         query = q
         submitted = q
+        AppGraph.store.addSearch(q)
         suggestJob?.cancel()
         searchJob?.cancel()
         results = emptyList(); error = null; next = null; loading = true
         searchJob = viewModelScope.launch {
             try {
-                val page = AppGraph.repo.search(q)
+                val page = AppGraph.repo.search(q, filter = filter)
                 results = com.aaronateataco.materialtube.data.FeedFilter.entries(page.items)
                 next = page.next
             } catch (e: CancellationException) {
@@ -147,8 +160,8 @@ class SearchViewModel : ViewModel() {
         if (loadingMore || loading) return
         loadingMore = true
         viewModelScope.launch {
-            runCatching { AppGraph.repo.search(q, page) }.onSuccess {
-                results = results + com.aaronateataco.materialtube.data.FeedFilter.entries(it.items)
+            runCatching { AppGraph.repo.search(q, page, filter) }.onSuccess {
+                results = com.aaronateataco.materialtube.data.FeedFilter.entries(results + it.items)
                 next = it.next
             }
             loadingMore = false
@@ -208,8 +221,22 @@ fun SearchScreen(
             label = "search",
         ) { typing ->
             if (typing) {
+                val history by AppGraph.store.searches.collectAsState()
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = listPadding(LocalBottomPadding.current)) {
-                    items(vm.suggestions) { s ->
+                    // Recent searches show first, like the official app.
+                    val recent = if (vm.query.isBlank()) history else history.filter { it.contains(vm.query.trim(), true) }.take(3)
+                    items(recent, key = { "h:$it" }) { s ->
+                        ListItem(
+                            headlineContent = { Text(s, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            leadingContent = { Icon(Icons.Rounded.History, null) },
+                            trailingContent = {
+                                IconButton(onClick = { AppGraph.store.removeSearch(s) }) { Icon(Icons.Rounded.Close, "Remove") }
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { vm.submit(s); focusManager.clearFocus() },
+                        )
+                    }
+                    items(vm.suggestions.filterNot { it in recent }) { s ->
                         ListItem(
                             headlineContent = { Text(s, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingContent = { Icon(Icons.Rounded.Search, null) },
@@ -230,6 +257,21 @@ fun SearchScreen(
                     }.distinctUntilChanged().filter { it }.collect { vm.loadMore() }
                 }
                 LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(LocalBottomPadding.current)) {
+                    item(key = "filters") {
+                        androidx.compose.foundation.lazy.LazyRow(
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(listOf("" to "All", "videos" to "Videos", "channels" to "Channels")) { (key, label) ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = vm.filter == key,
+                                    onClick = { vm.setFilter(key) },
+                                    label = { Text(label) },
+                                    shape = RoundedCornerShape(8.dp),
+                                )
+                            }
+                        }
+                    }
                     when {
                         vm.loading -> item { SkeletonCards() }
                         vm.error != null -> item { ErrorState(vm.error!!, { vm.submit() }) }
@@ -279,7 +321,7 @@ class ChannelViewModel(private val url: String) : ViewModel() {
                 details = d
                 d.videosTab?.let { tab ->
                     val page = AppGraph.repo.channelVideos(tab)
-                    videos = page.items
+                    videos = page.items.distinctBy { v -> v.id }
                     next = page.next
                 }
             } catch (e: CancellationException) {
@@ -299,7 +341,7 @@ class ChannelViewModel(private val url: String) : ViewModel() {
         loadingMore = true
         viewModelScope.launch {
             runCatching { AppGraph.repo.channelVideos(tab, page) }.onSuccess {
-                videos = videos + it.items
+                videos = (videos + it.items).distinctBy { v -> v.id }
                 next = it.next
             }
             loadingMore = false

@@ -61,6 +61,23 @@ class PlayerViewModel : ViewModel() {
     var speed by mutableFloatStateOf(AppGraph.store.settings.value.defaultSpeed)
         private set
 
+    // Captions, chapters, sleep timer
+    var captionTracks by mutableStateOf<List<CaptionTrack>>(emptyList())
+        private set
+    var captionTrack by mutableStateOf<CaptionTrack?>(null)
+        private set
+    private var cues: List<Cue> = emptyList()
+    var captionText by mutableStateOf<String?>(null)
+        private set
+    var chapters by mutableStateOf<List<Chapter>>(emptyList())
+        private set
+    var chapterIndex by mutableIntStateOf(-1)
+        private set
+    /** Minutes chosen for the sleep timer: 0 off, -1 end of video. */
+    var sleepMinutes by mutableIntStateOf(0)
+        private set
+    private var sleepAtMs = 0L
+
     // Comments
     var comments by mutableStateOf<List<Comment>>(emptyList())
         private set
@@ -133,6 +150,18 @@ class PlayerViewModel : ViewModel() {
         positionMs = player.currentPosition
         bufferedMs = player.bufferedPosition
         if (player.duration > 0) durationMs = player.duration
+        if (cues.isNotEmpty()) {
+            val text = cues.lastOrNull { positionMs in it.startMs until it.endMs }?.text
+            if (text != captionText) captionText = text
+        }
+        if (chapters.isNotEmpty()) {
+            val idx = chapters.indexOfLast { it.startMs <= positionMs }
+            if (idx != chapterIndex) chapterIndex = idx
+        }
+        if (sleepMinutes > 0 && System.currentTimeMillis() >= sleepAtMs) {
+            player.pause()
+            sleepMinutes = 0
+        }
         if (!player.isPlaying) return
         val pos = positionMs / 1000.0
         val seg = segments.firstOrNull {
@@ -149,6 +178,10 @@ class PlayerViewModel : ViewModel() {
 
     private fun onEnded() {
         val s = store.settings.value
+        if (sleepMinutes == -1) {
+            sleepMinutes = 0
+            return
+        }
         when {
             s.loopVideo -> { player.seekTo(0); player.play() }
             s.autoplayNext && !fullscreen -> related.firstOrNull()?.let { next ->
@@ -209,6 +242,8 @@ class PlayerViewModel : ViewModel() {
         info = null; error = null; segments = emptyList(); votes = null; rating = Rating.NONE
         related = emptyList(); skipped = null; skippedIds.clear(); firstFrame = false
         comments = emptyList(); commentsNext = null
+        captionTracks = emptyList(); captionTrack = null; cues = emptyList(); captionText = null
+        chapters = emptyList(); chapterIndex = -1
         quality = preferredQuality()
         speed = store.settings.value.defaultSpeed
         loading = true
@@ -236,6 +271,8 @@ class PlayerViewModel : ViewModel() {
                 store.addHistory(video)
                 play(i, pendingStartMs)
                 pendingStartMs = 0
+                captionTracks = Captions.tracks(i)
+                chapters = Chapters.of(i)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -289,6 +326,22 @@ class PlayerViewModel : ViewModel() {
         quality = q
         info?.let { play(it, player.currentPosition) }
     }
+
+    fun selectCaptions(track: CaptionTrack?) {
+        captionTrack = track
+        cues = emptyList()
+        captionText = null
+        if (track == null) return
+        viewModelScope.launch { cues = runCatching { Captions.load(track) }.getOrDefault(emptyList()) }
+    }
+
+    fun setSleepTimer(minutes: Int) {
+        sleepMinutes = minutes
+        if (minutes > 0) sleepAtMs = System.currentTimeMillis() + minutes * 60_000L
+    }
+
+    fun toggleLoop() = store.updateSettings { it.copy(loopVideo = !it.loopVideo) }
+    fun toggleAutoplay() = store.updateSettings { it.copy(autoplayNext = !it.autoplayNext) }
 
     fun changeSpeed(s: Float) {
         speed = s

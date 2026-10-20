@@ -85,8 +85,11 @@ def tap_xy(x, y):
     adb(f"shell input tap {x} {y}")
 
 
-def tap(label, exact=False, wait=2.5):
-    for t, d, x, y in dump():
+def tap(label, exact=False, wait=2.5, bottom=False):
+    nodes = dump()
+    if bottom:
+        nodes = sorted(nodes, key=lambda n: -n[3])
+    for t, d, x, y in nodes:
         for v in (t, d):
             if v and ((v == label) if exact else (label.lower() in v.lower())):
                 tap_xy(x, y)
@@ -169,8 +172,37 @@ def main():
     back(2)
     shot("mini_player")
 
+    # 4b. The reported crash: search while a video is minimised, scroll, go back, reopen the video
+    if tap("Search", exact=True, wait=3):
+        adb("shell input text music")
+        adb("shell input keyevent 66")
+        time.sleep(10)
+        swipe_up(8)
+        time.sleep(4)
+        swipe_up(6)
+        time.sleep(4)
+        shot("search_scrolled")
+        note(f"[crash-check] after search scroll alive={alive()}")
+        back(2)
+        back(2)
+        shot("back_from_search")
+    mini_y = int(H * 0.842)
+    tap_xy(W // 2, mini_y)
+    time.sleep(4)
+    shot("mini_reopened")
+    note(f"[crash-check] after reopening alive={alive()}")
+    back(2)
+    shot("collapsed_again")
+    # Leave the app and come back
+    adb("shell input keyevent 3")
+    time.sleep(4)
+    adb(f"shell am start -n {PKG}/.MainActivity")
+    time.sleep(5)
+    shot("returned_to_app")
+    note(f"[crash-check] after leaving and returning alive={alive()}")
+
     # 5. Shorts
-    if tap("Shorts", exact=True, wait=18):
+    if tap("Shorts", exact=True, wait=18, bottom=True):
         shot("shorts_first")
         swipe_up(1)
         time.sleep(6)
@@ -245,10 +277,20 @@ def main():
     adb("shell cmd uimode night yes")
     time.sleep(6)
     shot("home_dark")
-    tap("Shorts", exact=True, wait=12)
+    tap("Shorts", exact=True, wait=12, bottom=True)
     shot("shorts_dark")
     tap("Home", exact=True, wait=3)
     adb("shell cmd uimode night no")
+
+    # Swipe the mini player away
+    adb(f"shell input swipe {int(W * 0.3)} {int(H * 0.842)} {int(W * 0.98)} {int(H * 0.842)} 200")
+    time.sleep(2)
+    shot("mini_swiped_away")
+
+    # Launcher shortcut
+    adb(f"shell am start -a android.intent.action.VIEW -d materialtube://search -n {PKG}/.MainActivity")
+    time.sleep(3)
+    shot("shortcut_search")
 
     # Logs
     logcat = adb("logcat -d -v time", timeout=120)

@@ -31,11 +31,15 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val playerVm: PlayerViewModel by viewModels()
     private val inPip = mutableStateOf(false)
+    /** Screen to open from a launcher shortcut (search, subs, shorts). */
+    private val pendingRoute = mutableStateOf<String?>(null)
+    private val crashReport = mutableStateOf<String?>(null)
     private var controller: ListenableFuture<MediaController>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        crashReport.value = CrashReporter.take(this)
         handleIntent(intent)
 
         // Binds the background service so playback survives leaving the app.
@@ -70,7 +74,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by AppGraph.store.settings.collectAsStateWithLifecycle()
             TubeTheme(settings) {
-                AppRoot(playerVm, inPip.value)
+                AppRoot(
+                    vm = playerVm,
+                    inPip = inPip.value,
+                    pendingRoute = pendingRoute.value,
+                    onRouteHandled = { pendingRoute.value = null },
+                )
+                crashReport.value?.let { report ->
+                    com.aaronateataco.materialtube.ui.CrashDialog(report) { crashReport.value = null }
+                }
             }
         }
     }
@@ -102,6 +114,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        intent?.data?.takeIf { it.scheme == "materialtube" }?.let { uri ->
+            pendingRoute.value = uri.host
+            return
+        }
         val text = when (intent?.action) {
             Intent.ACTION_VIEW -> intent.dataString
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)

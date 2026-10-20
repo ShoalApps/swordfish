@@ -14,6 +14,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -161,6 +164,8 @@ class ShortsViewModel : ViewModel() {
             var tick = 0
             while (true) {
                 val p = playerFor(current)
+                val awake = active && p?.isPlaying == true
+                if (com.aaronateataco.materialtube.ui.ScreenAwake.shorts != awake) com.aaronateataco.materialtube.ui.ScreenAwake.shorts = awake
                 if (p != null) {
                     val d = p.duration
                     progress = if (d > 0) (p.currentPosition.toFloat() / d).coerceIn(0f, 1f) else 0f
@@ -320,6 +325,7 @@ class ShortsViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        com.aaronateataco.materialtube.ui.ScreenAwake.shorts = false
         pool.forEach { it.release() }
     }
 }
@@ -425,12 +431,19 @@ private fun ShortPage(vm: ShortsViewModel, page: Int, isCurrent: Boolean, onChan
         )
         if (player != null) {
             val isReady = vm.ready[page] == true
-            Box(Modifier.fillMaxSize().background(if (isReady) surface else Color.Transparent), contentAlignment = Alignment.Center) {
+            // Fill the whole screen, cropping the edges if needed, like the official app.
+            BoxWithConstraints(Modifier.fillMaxSize().clipToBounds(), contentAlignment = Alignment.Center) {
+                val videoRatio = vm.aspects[page] ?: (9f / 16f)
+                val boxRatio = maxWidth / maxHeight
+                val w = if (videoRatio > boxRatio) maxHeight * videoRatio else maxWidth
+                val h = if (videoRatio > boxRatio) maxHeight else maxWidth / videoRatio
                 key(vm.slotOf(page)) {
                     AndroidView(
                         factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } },
                         onRelease = { player.clearVideoTextureView(it) },
-                        modifier = Modifier.fillMaxSize().wrapContentSize().aspectRatio(vm.aspects[page] ?: (9f / 16f)),
+                        modifier = Modifier
+                            .requiredSize(w, h)
+                            .graphicsLayer { alpha = if (isReady) 1f else 0f },
                     )
                 }
             }

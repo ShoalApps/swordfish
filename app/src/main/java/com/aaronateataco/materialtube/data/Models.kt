@@ -62,7 +62,8 @@ fun StreamInfoItem.toVideo() = VideoItem(
     durationSec = duration,
     views = viewCount,
     uploaded = textualUploadDate,
-    uploadedEpoch = runCatching { uploadDate?.offsetDateTime()?.toEpochSecond() }.getOrNull(),
+    uploadedEpoch = runCatching { uploadDate?.offsetDateTime()?.toEpochSecond() }.getOrNull()
+        ?: parseIsoEpoch(textualUploadDate),
     isLive = streamType == StreamType.LIVE_STREAM,
     isShort = isShortFormContent,
 )
@@ -91,6 +92,8 @@ fun StreamInfo.toVideo() = VideoItem(
     durationSec = duration,
     views = viewCount,
     uploaded = textualUploadDate,
+    uploadedEpoch = runCatching { uploadDate?.offsetDateTime()?.toEpochSecond() }.getOrNull()
+        ?: parseIsoEpoch(textualUploadDate),
     isLive = streamType == StreamType.LIVE_STREAM,
 )
 
@@ -118,8 +121,48 @@ fun VideoItem.subtitle(): String = listOfNotNull(
     channelName.takeIf { it.isNotBlank() },
     viewsText?.takeIf { it.isNotBlank() }
         ?: if (isLive) "Live" else views.takeIf { it >= 0 }?.let { "${formatCount(it)} views" },
-    uploaded?.takeIf { it.isNotBlank() },
+    uploadedText(),
 ).joinToString(" · ")
+
+/** "3 days ago", the way YouTube writes it, whatever format the source used. */
+fun VideoItem.uploadedText(): String? {
+    val raw = uploaded?.takeIf { it.isNotBlank() }
+    // Text like "2 days ago" or "Streamed 3 hours ago" is already right.
+    if (raw != null && !looksLikeIsoDate(raw)) return raw
+    return uploadedEpoch?.let(::timeAgo) ?: raw?.let(::parseIsoEpoch)?.let(::timeAgo)
+}
+
+private val isoRegex = Regex("""^\d{4}-\d{2}-\d{2}""")
+
+fun looksLikeIsoDate(text: String) = isoRegex.containsMatchIn(text.trim())
+
+fun parseIsoEpoch(text: String?): Long? {
+    if (text.isNullOrBlank() || !looksLikeIsoDate(text)) return null
+    val t = text.trim()
+    return runCatching { java.time.OffsetDateTime.parse(t).toEpochSecond() }.getOrNull()
+        ?: runCatching { java.time.Instant.parse(t).epochSecond }.getOrNull()
+        ?: runCatching { java.time.LocalDateTime.parse(t).atZone(java.time.ZoneId.systemDefault()).toEpochSecond() }.getOrNull()
+        ?: runCatching { java.time.LocalDate.parse(t.take(10)).atStartOfDay(java.time.ZoneId.systemDefault()).toEpochSecond() }.getOrNull()
+}
+
+fun timeAgo(epochSec: Long): String {
+    val diff = (System.currentTimeMillis() / 1000 - epochSec).coerceAtLeast(0)
+    fun fmt(n: Long, unit: String) = "$n $unit${if (n == 1L) "" else "s"} ago"
+    return when {
+        diff < 60 -> "just now"
+        diff < 3600 -> fmt(diff / 60, "minute")
+        diff < 86_400 -> fmt(diff / 3600, "hour")
+        diff < 7 * 86_400 -> fmt(diff / 86_400, "day")
+        diff < 30 * 86_400 -> fmt(diff / (7 * 86_400), "week")
+        diff < 365 * 86_400 -> fmt(diff / (30 * 86_400), "month")
+        else -> fmt(diff / (365 * 86_400), "year")
+    }
+}
+
+/** "19 Oct 2026" for the description panel. */
+fun fullDate(epochSec: Long): String =
+    java.time.Instant.ofEpochSecond(epochSec).atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", Locale.UK))
 
 private val channelIdRegex = Regex("""/channel/(UC[\w-]{22})""")
 

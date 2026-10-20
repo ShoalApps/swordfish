@@ -53,6 +53,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.SlowMotionVideo
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
@@ -91,6 +97,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.input.pointer.pointerInput
@@ -135,6 +142,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ClosedCaption
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.PushPin
@@ -151,6 +159,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import coil3.compose.AsyncImage
 import com.aaronateataco.materialtube.data.Comment
+import com.aaronateataco.materialtube.data.fullDate
+import com.aaronateataco.materialtube.data.timeAgo
+import com.aaronateataco.materialtube.data.uploadedText
 import com.aaronateataco.materialtube.player.Rating
 import com.aaronateataco.materialtube.ui.Links
 import com.aaronateataco.materialtube.ui.components.CenterLoading
@@ -208,6 +219,7 @@ fun PlayerSheet(
     }
 
     val p = vm.expand.value
+    val ambient = AppGraph.store.settings.collectAsState().value.ambientMode
     val isFullscreen = vm.fullscreen || (landscape && p > 0.99f)
     FullscreenEffect(isFullscreen, vm)
 
@@ -245,6 +257,8 @@ fun PlayerSheet(
             scope.launch { vm.expand.snapTo((vm.expand.value - delta / travel).coerceIn(0f, 1f)) }
         }
         val settle: suspend (Float) -> Unit = { velocity ->
+            // Swiping up on an open video goes full screen, like the official app.
+            if (vm.expand.value >= 0.99f && velocity < -900f) vm.fullscreen = true
             val target = when {
                 velocity < -1200f -> 1f
                 velocity > 1200f -> 0f
@@ -267,12 +281,31 @@ fun PlayerSheet(
         val launching = launchFrom != null
         val l = launch.value
 
+        // Swipe the mini player sideways to close it.
+        val dismissX = remember { Animatable(0f) }
+        val fullWpx = fullW
+        val dismissState = rememberDraggableState { d -> scope.launch { dismissX.snapTo(dismissX.value + d) } }
+        LaunchedEffect(vm.current?.id) { dismissX.snapTo(0f) }
         Surface(
             color = bg,
             shape = RoundedCornerShape(corner),
             shadowElevation = lerp(6.dp, 0.dp, p),
             modifier = Modifier
-                .offset { IntOffset(0, top.roundToInt()) }
+                .offset { IntOffset(dismissX.value.roundToInt(), top.roundToInt()) }
+                .graphicsLayer { alpha = 1f - (kotlin.math.abs(dismissX.value) / fullWpx).coerceIn(0f, 0.9f) }
+                .draggable(
+                    state = dismissState,
+                    orientation = Orientation.Horizontal,
+                    enabled = p < 0.05f,
+                    onDragStopped = { v ->
+                        if (kotlin.math.abs(dismissX.value) > fullWpx * 0.35f || kotlin.math.abs(v) > 1500f) {
+                            dismissX.animateTo(if (dismissX.value + v * 0.1f > 0) fullWpx else -fullWpx, tween(160))
+                            vm.close()
+                        } else {
+                            dismissX.animateTo(0f, spatial)
+                        }
+                    },
+                )
                 .graphicsLayer {
                     val s = 1f - 0.1f * b
                     scaleX = s
@@ -284,6 +317,20 @@ fun PlayerSheet(
                 .fillMaxWidth()
                 .height(with(density) { height.toDp() }),
         ) {
+          Box(Modifier.fillMaxSize()) {
+            // Ambient mode: a soft glow of the video's colours behind the player.
+            if (ambient && p > 0.05f && android.os.Build.VERSION.SDK_INT >= 31) {
+                AsyncImage(
+                    model = vm.current?.thumbnail,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(statusPad + videoH + 120.dp)
+                        .graphicsLayer { alpha = 0.55f * p }
+                        .blur(90.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                )
+            }
             Column(Modifier.fillMaxSize()) {
                 Spacer(Modifier.height(statusPad))
                 Box {
@@ -340,6 +387,7 @@ fun PlayerSheet(
                     )
                 }
             }
+          }
         }
 
         // The thumbnail flying from the feed into the player.
@@ -412,6 +460,22 @@ fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
+            )
+        }
+        // Captions, YouTube style: white text on a dark box near the bottom.
+        val caption = vm.captionText
+        if (caption != null && vm.captionTrack != null) {
+            Text(
+                caption,
+                color = Color.White,
+                fontSize = 15.sp,
+                lineHeight = 20.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 24.dp, end = 24.dp, bottom = 36.dp)
+                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
     }
@@ -562,11 +626,24 @@ fun PlayerControls(
                 Column(Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(horizontal = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "${formatDuration(vm.positionMs / 1000)} / ${formatDuration(vm.durationMs / 1000)}",
+                            "${formatDuration(vm.positionMs / 1000)} / ${formatDuration(vm.durationMs / 1000)}" +
+                                (vm.chapters.getOrNull(vm.chapterIndex)?.title?.takeIf { it.isNotBlank() }?.let { "  •  $it" } ?: ""),
                             color = Color.White,
                             fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
+                        IconButton(onClick = {
+                            vm.selectCaptions(if (vm.captionTrack == null) vm.captionTracks.firstOrNull() else null)
+                            poke++
+                        }, enabled = vm.captionTracks.isNotEmpty()) {
+                            Icon(
+                                if (vm.captionTrack != null) Icons.Rounded.ClosedCaption else Icons.Outlined.ClosedCaption,
+                                "Captions",
+                                tint = if (vm.captionTracks.isEmpty()) Color.White.copy(alpha = 0.4f) else Color.White,
+                            )
+                        }
                         IconButton(onClick = { vm.fullscreen = !fullscreen; poke++ }) {
                             Icon(
                                 if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
@@ -580,6 +657,7 @@ fun PlayerControls(
                         durationMs = vm.durationMs,
                         bufferedMs = vm.bufferedMs,
                         segments = vm.segments,
+                        chapters = vm.chapters,
                         onSeek = { vm.seekTo(it); poke++ },
                         onDragging = { poke++ },
                     )
@@ -692,6 +770,7 @@ private fun SeekBar(
     durationMs: Long,
     bufferedMs: Long,
     segments: List<SbSegment>,
+    chapters: List<com.aaronateataco.materialtube.player.Chapter>,
     onSeek: (Long) -> Unit,
     onDragging: () -> Unit,
 ) {
@@ -735,41 +814,128 @@ private fun SeekBar(
             }
         }
         drawRoundRect(primary, Offset(0f, y), Size(size.width * frac, h), r)
+        // Little gaps where chapters start, like the official seek bar.
+        if (durationMs > 0) {
+            chapters.drop(1).forEach { c ->
+                val x = c.startMs.toFloat() / durationMs * size.width
+                drawRect(Color.Black.copy(alpha = 0.6f), Offset(x - 1.5f, y), Size(3f, h))
+            }
+        }
         drawCircle(primary, thumb.toPx(), Offset(size.width * frac, size.height / 2f))
     }
 }
 
+/** YouTube's player settings: a list that slides into each option. */
 @Composable
 private fun PlayerOptionsSheet(vm: PlayerViewModel, onDismiss: () -> Unit) {
+    val settings by AppGraph.store.settings.collectAsState()
+    var page by remember { mutableStateOf("main") }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("Quality", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(vm.qualities.ifEmpty { listOf(vm.quality) }) { q ->
-                androidx.compose.material3.FilterChip(
-                    selected = q == vm.quality,
-                    onClick = { vm.changeQuality(q); onDismiss() },
-                    label = { Text("${q}p") },
-                )
+        AnimatedContent(
+            targetState = page,
+            transitionSpec = {
+                val forward = targetState != "main"
+                (slideInHorizontally { if (forward) it / 3 else -it / 3 } + fadeIn()) togetherWith
+                    (slideOutHorizontally { if (forward) -it / 3 else it / 3 } + fadeOut())
+            },
+            label = "options",
+        ) { current ->
+            Column(Modifier.padding(bottom = 24.dp)) {
+                when (current) {
+                    "main" -> {
+                        OptionRow(Icons.Rounded.Tune, "Quality", "${vm.quality}p") { page = "quality" }
+                        OptionRow(Icons.Rounded.Speed, "Playback speed", if (vm.speed == 1f) "Normal" else "${vm.speed}x") { page = "speed" }
+                        OptionRow(
+                            Icons.Rounded.ClosedCaption,
+                            "Captions",
+                            vm.captionTrack?.label ?: if (vm.captionTracks.isEmpty()) "Unavailable" else "Off",
+                        ) { if (vm.captionTracks.isNotEmpty()) page = "captions" }
+                        OptionRow(
+                            Icons.Rounded.Bedtime,
+                            "Sleep timer",
+                            when (vm.sleepMinutes) { 0 -> "Off"; -1 -> "End of video"; else -> "${vm.sleepMinutes} minutes" },
+                        ) { page = "sleep" }
+                        SwitchRow(Icons.Rounded.Repeat, "Loop video", settings.loopVideo) { vm.toggleLoop() }
+                        SwitchRow(Icons.Rounded.SlowMotionVideo, "Autoplay", settings.autoplayNext) { vm.toggleAutoplay() }
+                    }
+                    "quality" -> {
+                        SheetTitle("Quality for current video") { page = "main" }
+                        vm.qualities.ifEmpty { listOf(vm.quality) }.forEach { q ->
+                            PickRow("${q}p" + if (q >= 2160) " 4K" else if (q >= 1440) " HD" else if (q >= 720) " HD" else "", q == vm.quality) {
+                                vm.changeQuality(q); onDismiss()
+                            }
+                        }
+                    }
+                    "speed" -> {
+                        SheetTitle("Playback speed") { page = "main" }
+                        listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 3f).forEach { sp ->
+                            PickRow(if (sp == 1f) "Normal" else "${sp}x", abs(sp - vm.speed) < 0.01f) { vm.changeSpeed(sp); onDismiss() }
+                        }
+                    }
+                    "captions" -> {
+                        SheetTitle("Captions") { page = "main" }
+                        PickRow("Off", vm.captionTrack == null) { vm.selectCaptions(null); onDismiss() }
+                        vm.captionTracks.forEach { t ->
+                            PickRow(t.label, vm.captionTrack == t) { vm.selectCaptions(t); onDismiss() }
+                        }
+                    }
+                    "sleep" -> {
+                        SheetTitle("Sleep timer") { page = "main" }
+                        com.aaronateataco.materialtube.player.sleepChoices.forEach { m ->
+                            val label = when (m) { 0 -> "Off"; -1 -> "End of video"; else -> "$m minutes" }
+                            PickRow(label, vm.sleepMinutes == m) { vm.setSleepTimer(m); onDismiss() }
+                        }
+                    }
+                }
             }
         }
-        Text("Speed", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)) { s ->
-                androidx.compose.material3.FilterChip(
-                    selected = abs(s - vm.speed) < 0.01f,
-                    onClick = { vm.changeSpeed(s); onDismiss() },
-                    label = { Text(if (s == 1f) "Normal" else "${s}x") },
-                )
-            }
-        }
-        Spacer(Modifier.height(32.dp))
     }
+}
+
+@Composable
+private fun OptionRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
+    androidx.compose.material3.ListItem(
+        headlineContent = { Text(title) },
+        leadingContent = { Icon(icon, null) },
+        trailingContent = {
+            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        },
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+@Composable
+private fun SwitchRow(icon: ImageVector, title: String, checked: Boolean, onToggle: () -> Unit) {
+    androidx.compose.material3.ListItem(
+        headlineContent = { Text(title) },
+        leadingContent = { Icon(icon, null) },
+        trailingContent = { androidx.compose.material3.Switch(checked = checked, onCheckedChange = { onToggle() }) },
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onToggle),
+    )
+}
+
+@Composable
+private fun SheetTitle(title: String, onBack: () -> Unit) {
+    Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+        Text(title, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
+private fun PickRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.ListItem(
+        headlineContent = { Text(label, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
+        leadingContent = {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                if (selected) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
+            }
+        },
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
 }
 
 // ---------------- Watch page details (laid out like the official app) ----------------
@@ -841,7 +1007,8 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                     )
                     val meta = listOfNotNull(
                         info?.viewCount?.takeIf { it >= 0 }?.let { "${formatCount(it)} views" } ?: item.viewsText,
-                        info?.textualUploadDate ?: item.uploaded,
+                        info?.let { i -> runCatching { i.uploadDate?.offsetDateTime()?.toEpochSecond() }.getOrNull()?.let(::timeAgo) }
+                            ?: item.uploadedText(),
                     ).joinToString("  ")
                     Text(
                         "$meta  ...more".trim(),
@@ -1090,7 +1257,8 @@ private fun DescriptionSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDi
                 ) {
                     Stat(info?.likeCount?.takeIf { it >= 0 }?.let(::formatCount) ?: "–", "Likes")
                     Stat(info?.viewCount?.takeIf { it >= 0 }?.let(::formatCount) ?: "–", "Views")
-                    Stat(info?.textualUploadDate ?: item.uploaded ?: "–", "Uploaded")
+                    val epoch = info?.let { i -> runCatching { i.uploadDate?.offsetDateTime()?.toEpochSecond() }.getOrNull() } ?: item.uploadedEpoch
+                    Stat(epoch?.let(::fullDate) ?: item.uploadedText() ?: "–", "Uploaded")
                 }
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -1098,6 +1266,37 @@ private fun DescriptionSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDi
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 ) {
                     Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(14.dp))
+                }
+                if (vm.chapters.isNotEmpty()) {
+                    Text(
+                        "Chapters",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp),
+                    )
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        itemsIndexed(vm.chapters) { i, c ->
+                            Column(
+                                Modifier
+                                    .width(150.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { vm.seekTo(c.startMs) }
+                                    .background(
+                                        if (i == vm.chapterIndex) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                                    )
+                                    .padding(4.dp),
+                            ) {
+                                AsyncImage(
+                                    model = c.thumbnail ?: item.thumbnail,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp)),
+                                )
+                                Text(c.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                                Text(formatDuration(c.startMs / 1000), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
                 }
             }
         }

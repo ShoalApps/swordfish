@@ -41,6 +41,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -83,6 +87,11 @@ private val tabs = listOf(
 
 private fun isTab(route: String?) = tabs.any { it.route == route }
 
+/** Lets the Shorts screen ask for the screen to stay on. */
+object ScreenAwake {
+    var shorts by androidx.compose.runtime.mutableStateOf(false)
+}
+
 // Material motion: fade-through between tabs, shared X-axis for going deeper.
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.betweenTabs() =
     isTab(initialState.destination.route) && isTab(targetState.destination.route)
@@ -104,7 +113,7 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTra
     else slideOutHorizontally(tween(300)) { it / 6 } + fadeOut(tween(200))
 
 @Composable
-fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
+fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, onRouteHandled: () -> Unit = {}) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -118,6 +127,23 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
             launchSingleTop = true
             restoreState = true
         }
+    }
+
+    // Launcher shortcuts (long-press the app icon).
+    LaunchedEffect(pendingRoute) {
+        when (pendingRoute) {
+            "search" -> nav.navigate("search")
+            "subs", "shorts", "you", "home" -> goTab(pendingRoute)
+        }
+        if (pendingRoute != null) onRouteHandled()
+    }
+
+    // Keep the screen on while a video or Short is playing, like the official app.
+    val view = LocalView.current
+    val awake = (vm.isPlaying && (vm.sheetVisible || inPip)) || ScreenAwake.shorts
+    DisposableEffect(awake) {
+        view.keepScreenOn = awake
+        onDispose { view.keepScreenOn = false }
     }
 
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

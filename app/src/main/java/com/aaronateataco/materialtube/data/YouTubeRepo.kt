@@ -42,8 +42,9 @@ class YouTubeRepo {
         extractor.initialPage.items.filterIsInstance<StreamInfoItem>().map { it.toVideo() }
     }
 
-    suspend fun search(query: String, page: Page? = null): Paged<Entry> = withContext(Dispatchers.IO) {
-        val handler = yt.searchQHFactory.fromQuery(query, emptyList(), "")
+    /** [filter] is "", "videos" or "channels". */
+    suspend fun search(query: String, page: Page? = null, filter: String = ""): Paged<Entry> = withContext(Dispatchers.IO) {
+        val handler = yt.searchQHFactory.fromQuery(query, if (filter.isBlank()) emptyList() else listOf(filter), "")
         if (page == null) {
             val info = SearchInfo.getInfo(yt, handler)
             Paged(info.relatedItems.mapNotNull { it.toEntry() }, info.nextPage.orNull())

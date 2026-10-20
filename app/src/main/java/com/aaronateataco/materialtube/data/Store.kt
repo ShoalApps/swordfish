@@ -63,6 +63,8 @@ data class Settings(
     val hideSubsAvatars: Boolean = false,
     // Misc
     val sanitizeShareLinks: Boolean = true,
+    // Look
+    val ambientMode: Boolean = true,
 )
 
 /** Topics for the Learning feed: key, label, search phrases. */
@@ -107,6 +109,21 @@ class Store(context: Context) {
 
     private val _history = MutableStateFlow(load<List<VideoItem>>("history") ?: emptyList())
     val history: StateFlow<List<VideoItem>> = _history
+
+    private val _searches = MutableStateFlow(load<List<String>>("searches") ?: emptyList())
+    val searches: StateFlow<List<String>> = _searches
+
+    fun addSearch(q: String) {
+        val t = q.trim()
+        if (t.isEmpty()) return
+        _searches.update { (listOf(t) + it.filterNot { s -> s.equals(t, true) }).take(20) }
+        save("searches", _searches.value)
+    }
+
+    fun removeSearch(q: String) {
+        _searches.update { it - q }
+        save("searches", _searches.value)
+    }
 
     private val _cookie = MutableStateFlow(prefs.getString("cookie", null))
     val cookie: StateFlow<String?> = _cookie
