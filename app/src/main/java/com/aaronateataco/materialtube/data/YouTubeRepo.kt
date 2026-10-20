@@ -132,17 +132,65 @@ class YouTubeRepo {
         hearted = isHeartedByUploader,
     )
 
-    /** Shorts for people who aren't signed in: a few Shorts-flavoured searches. */
-    suspend fun shorts(): List<VideoItem> = coroutineScope {
-        listOf("#shorts", "shorts trending", "#shorts funny").map { q ->
-            async { runCatching { search(q).items }.getOrDefault(emptyList()) }
-        }.awaitAll()
-            .flatten()
-            .filterIsInstance<Entry.Video>()
-            .map { it.item }
-            .filter { it.isShort || it.url.contains("/shorts/") || it.durationSec in 1..180 }
-            .distinctBy { it.id }
-            .shuffled()
+    /** One of YouTube's remaining charts: trending_music, trending_gaming, trending_podcasts_episodes, trending_movies_and_shows, live. */
+    suspend fun kiosk(id: String): List<VideoItem> = withContext(Dispatchers.IO) {
+        val extractor = yt.kioskList.getExtractorById(id, null)
+        extractor.fetchPage()
+        extractor.initialPage.items.filterIsInstance<StreamInfoItem>().map { it.toVideo() }
+    }
+
+    /**
+     * Signed-out Home. YouTube removed its Trending page, so this mixes the charts that
+     * are left with your subscriptions, a few live streams at most.
+     */
+    suspend fun discoverFeed(subs: List<Sub>): List<VideoItem> = coroutineScope {
+        val charts = listOf("trending_music", "trending_gaming", "trending_podcasts_episodes", "trending_movies_and_shows")
+            .map { id -> async { runCatching { kiosk(id) }.getOrDefault(emptyList()) } }
+        val live = async { runCatching { kiosk("live") }.getOrDefault(emptyList()).take(4) }
+        val subFeed = async { if (subs.isEmpty()) emptyList() else runCatching { feed(subs).take(60) }.getOrDefault(emptyList()) }
+        val lists = listOf(subFeed.await()) + charts.awaitAll().map { it.shuffled() } + listOf(live.await())
+        val out = mutableListOf<VideoItem>()
+        val max = lists.maxOfOrNull { it.size } ?: 0
+        for (i in 0 until max) lists.forEach { l -> l.getOrNull(i)?.let(out::add) }
+        out.distinctBy { it.id }
+    }
+
+    /** Shorts from a channel's Shorts tab. */
+    suspend fun channelShorts(url: String): List<VideoItem> = withContext(Dispatchers.IO) {
+        val info = ChannelInfo.getInfo(yt, url)
+        val tab = info.tabs.firstOrNull { ChannelTabs.SHORTS in it.contentFilters } ?: return@withContext emptyList()
+        ChannelTabInfo.getInfo(yt, tab).relatedItems.filterIsInstance<StreamInfoItem>().map {
+            it.toVideo().copy(
+                isShort = true,
+                url = "https://www.youtube.com/shorts/${videoIdOf(it.url)}",
+                channelName = it.uploaderName?.takeIf { n -> n.isNotBlank() } ?: info.name.orEmpty(),
+                channelUrl = info.url,
+                channelAvatar = info.avatars.smallUrl(),
+            )
+        }
+    }
+
+    /**
+     * Shorts for people who aren't signed in: the Shorts tabs of channels you follow,
+     * topped up with some popular channels.
+     */
+    suspend fun shorts(subs: List<Sub> = emptyList()): List<VideoItem> = coroutineScope {
+        val popular = listOf(
+            "UCX6OQ3DkcsbYNE6H8uQQuVA", "UCY1kMZp36IQSyNx_9h4mpCg", "UCHnyfMqiRRG1u-2MsSQLbXA",
+            "UCsXVk37bltHxD1rDPwtNM8Q", "UCRijo3ddMTht_IHyNSNXpNQ", "UCBJycsmduvYEL83R_U4JriQ",
+            "UCXuqSBlHAE6Xw-yeJA0Tunw", "UC6107grRI4m0o2-emgoDnAA", "UCwmZiChSryoWQCZMIQezgTg",
+            "UCLA_DiR1FfKNvjuUpBHmylQ",
+        ).map { channelUrlOf(it) }
+        val urls = (subs.map { it.url }.shuffled().take(8) + popular.shuffled()).distinct().take(10)
+        val gate = Semaphore(5)
+        urls.map { u -> async { gate.withPermit { runCatching { channelShorts(u).take(8) }.getOrDefault(emptyList()) } } }
+            .awaitAll()
+            .let { lists ->
+                val out = mutableListOf<VideoItem>()
+                val max = lists.maxOfOrNull { it.size } ?: 0
+                for (i in 0 until max) lists.shuffled().forEach { l -> l.getOrNull(i)?.let(out::add) }
+                out.distinctBy { it.id }
+            }
     }
 
     /** Educational feed: searches each chosen topic and interleaves the results. */

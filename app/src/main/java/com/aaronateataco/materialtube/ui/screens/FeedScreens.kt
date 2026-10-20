@@ -112,13 +112,23 @@ import com.aaronateataco.materialtube.ui.components.PolygonShape
 import com.aaronateataco.materialtube.ui.components.VideoRow
 import com.aaronateataco.materialtube.ui.components.rememberCachedListState
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 // ---------------- Home ----------------
 
-val homeChips = listOf("All", "Music", "Gaming", "News", "Live", "Sport", "Tech", "Learning", "Comedy")
+val homeChips = listOf("All", "Music", "Gaming", "Podcasts", "Live", "Films", "News", "Sport", "Tech", "Comedy")
+
+/** Chips backed by YouTube's own charts rather than a search. */
+private val chipKiosks = mapOf(
+    "Music" to "trending_music",
+    "Gaming" to "trending_gaming",
+    "Podcasts" to "trending_podcasts_episodes",
+    "Live" to "live",
+    "Films" to "trending_movies_and_shows",
+)
 
 class HomeViewModel : ViewModel() {
     var chip by mutableStateOf("All")
@@ -174,12 +184,25 @@ class HomeViewModel : ViewModel() {
             try {
                 val s = AppGraph.store.settings.value
                 val wantShorts = !s.shortsDisabled && !s.hideShortsShelf && !learning && chip == "All"
-                val shortsJob = if (wantShorts && !AppGraph.store.signedIn) async { runCatching { AppGraph.repo.shorts() }.getOrDefault(emptyList()) } else null
-                val list = when {
-                    learning && chip == "All" -> AppGraph.repo.learningFeed(s.learningTopics, seed)
-                    learning -> LearningTopics.all.firstOrNull { it.label == chip }?.let { AppGraph.repo.topicFeed(it.key) } ?: emptyList()
-                    chip == "All" -> allFeed(wantShorts)
-                    else -> search(chip)
+                val shortsJob = if (wantShorts && !AppGraph.store.signedIn) {
+                    async { runCatching { AppGraph.repo.shorts(AppGraph.store.subs.value) }.getOrDefault(emptyList()) }
+                } else null
+                var list: List<VideoItem> = emptyList()
+                // The phone's connection can take a moment after launch, so retry a couple of times.
+                for (attempt in 0..2) {
+                    try {
+                        list = when {
+                            learning && chip == "All" -> AppGraph.repo.learningFeed(s.learningTopics, seed)
+                            learning -> LearningTopics.all.firstOrNull { it.label == chip }?.let { AppGraph.repo.topicFeed(it.key) } ?: emptyList()
+                            chip == "All" -> allFeed(wantShorts)
+                            chip in chipKiosks -> AppGraph.repo.kiosk(chipKiosks.getValue(chip)).ifEmpty { search(chip) }
+                            else -> search(chip)
+                        }
+                        break
+                    } catch (e: java.io.IOException) {
+                        if (attempt == 2) throw e
+                        delay(2500L * (attempt + 1))
+                    }
                 }
                 items = FeedFilter.apply(list)
                 shortsJob?.let { shorts = FeedFilter.apply(it.await()).take(12) }
@@ -204,13 +227,8 @@ class HomeViewModel : ViewModel() {
                 return feed.videos
             }
         }
-        val subs = AppGraph.store.subs.value
-        if (subs.isNotEmpty()) {
-            val feed = AppGraph.repo.feed(subs)
-            if (feed.isNotEmpty()) return feed.take(80)
-        }
-        val trending = runCatching { AppGraph.repo.trending() }.getOrDefault(emptyList())
-        return trending.ifEmpty { search("trending") }
+        val discover = AppGraph.repo.discoverFeed(AppGraph.store.subs.value)
+        return discover.ifEmpty { search("popular videos") }
     }
 
     private suspend fun search(q: String) =

@@ -174,7 +174,8 @@ class ShortsViewModel : ViewModel() {
                 val fromAccount = if (AppGraph.store.signedIn) {
                     runCatching { AppGraph.account.home().shorts }.getOrDefault(emptyList())
                 } else emptyList()
-                items = FeedFilter.apply((fromAccount + AppGraph.repo.shorts()).distinctBy { it.id })
+                val more = if (fromAccount.size >= 20) emptyList() else AppGraph.repo.shorts(AppGraph.store.subs.value)
+                items = FeedFilter.apply((fromAccount + more).distinctBy { it.id })
                 if (items.isEmpty()) error = "Couldn't find any Shorts right now"
                 else onPage(0)
             } catch (e: CancellationException) {

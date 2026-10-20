@@ -131,6 +131,11 @@ def main():
     adb("logcat -c")
     W, H = size()
     note(f"screen {W}x{H}")
+    for _ in range(30):
+        if "1 received" in adb("shell ping -c 1 -W 2 www.youtube.com", timeout=10):
+            note("network ready")
+            break
+        time.sleep(2)
 
     # 1. Home (light)
     adb("shell cmd uimode night no")
@@ -140,13 +145,14 @@ def main():
     check_text("home", "MaterialTube", "Home", "Shorts", "Subscriptions", "You")
 
     # 2. Scroll down and back up: thumbnails should still be there
-    swipe_up(4)
-    time.sleep(2)
+    swipe_up(5)
+    time.sleep(3)
     shot("home_scrolled")
-    swipe_down(4, dur=200)
-    time.sleep(0.5)
+    swipe_down(4, dur=250)
+    time.sleep(0.3)
     shot("home_back_up_immediate")
-    swipe_down(2)
+    swipe_down(1, dur=600)
+    time.sleep(1)
 
     # 3. Open the first video
     tap_xy(W // 2, int(H * 0.30))
@@ -212,13 +218,19 @@ def main():
     if tap("Choose feed", wait=3):
         shot("feed_sheet")
         tap("Learning", exact=True, wait=2)
-        back(1)
+        back(2)
         time.sleep(15)
         shot("learning_feed")
         if tap("Choose feed", wait=3):
             tap("Recommended", exact=True, wait=2)
-            back(1)
-            time.sleep(10)
+            back(2)
+            time.sleep(12)
+            shot("recommended_again")
+
+    # 9b. Chart chips
+    if tap("Music", exact=True, wait=10):
+        shot("chip_music")
+        tap("All", exact=True, wait=8)
 
     # 10. Search
     if tap("Search", exact=True, wait=3):
