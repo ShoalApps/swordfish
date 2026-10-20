@@ -1,0 +1,48 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:mergeReleaseArtProfile
+> Task :app:stripReleaseDebugSymbols
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:expandReleaseL8ArtProfileWildcards
+> Task :app:generateReleaseResources
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:packageReleaseResources
+> Task :app:processReleaseNavigationResources
+> Task :app:javaPreCompileRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:compileReleaseNavigationResources
+> Task :app:generateReleaseRFile
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:processReleaseResources
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:compileReleaseKotlin
+> Task :app:mergeExtDexRelease
+> Task :app:compileReleaseKotlin FAILED
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:639:25 No value passed for parameter 'onClick'.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:639:157 Argument type mismatch: actual type is '() -> Unit', but 'Boolean' was expected.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:640:25 No value passed for parameter 'onClick'.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:640:92 Argument type mismatch: actual type is '() -> Unit', but 'Boolean' was expected.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:650:25 No value passed for parameter 'onClick'.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:650:210 Argument type mismatch: actual type is '() -> Unit', but 'Boolean' was expected.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:651:25 No value passed for parameter 'onClick'.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:651:95 Argument type mismatch: actual type is '() -> Unit', but 'Boolean' was expected.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:652:25 No value passed for parameter 'onClick'.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:652:94 Argument type mismatch: actual type is '() -> Unit', but 'Boolean' was expected.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:653:25 No value passed for parameter 'onClick'.
+e: file:///home/runner/work/tube/tube/app/src/main/java/com/aaronateataco/materialtube/ui/screens/ShortsScreen.kt:653:178 Argument type mismatch: actual type is '() -> Unit', but 'Boolean' was expected.
+* What went wrong:
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
