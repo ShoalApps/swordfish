@@ -1,0 +1,758 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+
+package com.aaronateataco.materialtube.ui.screens
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Subscriptions
+import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.material.icons.rounded.WatchLater
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.MaterialShapes
+import com.aaronateataco.materialtube.ui.components.CookieAvatar
+import com.aaronateataco.materialtube.ui.components.ShapeIcon
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aaronateataco.materialtube.AppGraph
+import com.aaronateataco.materialtube.data.Entry
+import com.aaronateataco.materialtube.data.VideoItem
+import com.aaronateataco.materialtube.ui.components.Avatar
+import com.aaronateataco.materialtube.ui.components.EmptyState
+import com.aaronateataco.materialtube.ui.components.ErrorState
+import com.aaronateataco.materialtube.ui.components.LocalBottomPadding
+import com.aaronateataco.materialtube.ui.components.ShelfCard
+import com.aaronateataco.materialtube.ui.components.SkeletonCards
+import com.aaronateataco.materialtube.ui.components.VideoCard
+import com.aaronateataco.materialtube.ui.components.listPadding
+import com.aaronateataco.materialtube.ui.components.staggeredReveal
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import com.aaronateataco.materialtube.data.FeedFilter
+import com.aaronateataco.materialtube.data.LearningTopics
+import com.aaronateataco.materialtube.ui.components.PolygonShape
+import com.aaronateataco.materialtube.ui.components.VideoRow
+import com.aaronateataco.materialtube.ui.components.rememberCachedListState
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+
+// ---------------- Home ----------------
+
+val homeChips = listOf("All", "Music", "Gaming", "News", "Live", "Sport", "Tech", "Learning", "Comedy")
+
+class HomeViewModel : ViewModel() {
+    var chip by mutableStateOf("All")
+        private set
+    var items by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    var shorts by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    var loading by mutableStateOf(false)
+        private set
+    var refreshing by mutableStateOf(false)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+    var generation by mutableStateOf(0)
+        private set
+    private var job: Job? = null
+    private var loadedKey = feedKey()
+    private var seed = 0
+
+    /** Changes to any of these mean the feed must be rebuilt. */
+    private fun feedKey(): String {
+        val s = AppGraph.store.settings.value
+        return listOf(AppGraph.store.signedIn, AppGraph.store.pageId.value, s.feedMode, s.learningTopics.sorted(), s.shortsDisabled).toString()
+    }
+
+    val learning get() = AppGraph.store.settings.value.feedMode == "learning"
+
+    fun chips(): List<String> =
+        if (learning) listOf("All") + AppGraph.store.settings.value.learningTopics.mapNotNull { LearningTopics.of(it)?.label }
+        else homeChips
+
+    init { load() }
+
+    fun select(c: String) {
+        if (c == chip && items.isNotEmpty()) return
+        chip = c
+        load()
+    }
+
+    fun refresh() { seed++; load(pull = true) }
+
+    fun reloadIfChanged() {
+        if (loadedKey != feedKey()) { chip = "All"; load() }
+    }
+
+    private fun load(pull: Boolean = false) {
+        job?.cancel()
+        loadedKey = feedKey()
+        if (pull) refreshing = true else { loading = true; items = emptyList() }
+        error = null
+        job = viewModelScope.launch {
+            try {
+                val s = AppGraph.store.settings.value
+                val wantShorts = !s.shortsDisabled && !s.hideShortsShelf && !learning && chip == "All"
+                val shortsJob = if (wantShorts && !AppGraph.store.signedIn) async { runCatching { AppGraph.repo.shorts() }.getOrDefault(emptyList()) } else null
+                val list = when {
+                    learning && chip == "All" -> AppGraph.repo.learningFeed(s.learningTopics, seed)
+                    learning -> LearningTopics.all.firstOrNull { it.label == chip }?.let { AppGraph.repo.topicFeed(it.key) } ?: emptyList()
+                    chip == "All" -> allFeed(wantShorts)
+                    else -> search(chip)
+                }
+                items = FeedFilter.apply(list)
+                shortsJob?.let { shorts = FeedFilter.apply(it.await()).take(12) }
+                if (!wantShorts) shorts = emptyList()
+                generation++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.message ?: e.javaClass.simpleName
+            } finally {
+                loading = false
+                refreshing = false
+            }
+        }
+    }
+
+    private suspend fun allFeed(wantShorts: Boolean): List<VideoItem> {
+        if (AppGraph.store.signedIn) {
+            val feed = runCatching { AppGraph.account.home() }.getOrNull()
+            if (feed != null && feed.videos.isNotEmpty()) {
+                if (wantShorts) shorts = FeedFilter.apply(feed.shorts).take(12)
+                return feed.videos
+            }
+        }
+        val subs = AppGraph.store.subs.value
+        if (subs.isNotEmpty()) {
+            val feed = AppGraph.repo.feed(subs)
+            if (feed.isNotEmpty()) return feed.take(80)
+        }
+        val trending = runCatching { AppGraph.repo.trending() }.getOrDefault(emptyList())
+        return trending.ifEmpty { search("trending") }
+    }
+
+    private suspend fun search(q: String) =
+        AppGraph.repo.search(q).items.filterIsInstance<Entry.Video>().map { it.item }.filterNot { it.isShort }
+}
+
+@Composable
+fun HomeScreen(
+    onVideo: (VideoItem) -> Unit,
+    onChannel: (String) -> Unit,
+    onSearch: () -> Unit,
+    onNotifications: () -> Unit,
+    onShorts: () -> Unit,
+    vm: HomeViewModel = viewModel(),
+) {
+    val cookie by AppGraph.store.cookie.collectAsState()
+    val pageId by AppGraph.store.pageId.collectAsState()
+    val settings by AppGraph.store.settings.collectAsState()
+    LaunchedEffect(cookie, pageId, settings.feedMode, settings.learningTopics, settings.shortsDisabled) { vm.reloadIfChanged() }
+    var showFeedSheet by remember { mutableStateOf(false) }
+    val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val listState = rememberCachedListState()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            TopAppBar(
+                scrollBehavior = scroll,
+                title = { AppLogo() },
+                actions = {
+                    IconButton(onClick = onNotifications) { Icon(Icons.Outlined.Notifications, "Notifications") }
+                    IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, "Search") }
+                },
+            )
+        },
+    ) { pad ->
+        val ptr = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = vm.refreshing,
+            onRefresh = vm::refresh,
+            state = ptr,
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(state = ptr, isRefreshing = vm.refreshing, modifier = Modifier.align(Alignment.TopCenter))
+            },
+            modifier = Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
+        ) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(LocalBottomPadding.current)) {
+                item(key = "chips") {
+                    Chips(vm.chips(), vm.chip, vm::select, onExplore = { showFeedSheet = true }, learning = vm.learning)
+                }
+                when {
+                    vm.loading -> item(key = "loading") { SkeletonCards() }
+                    vm.error != null -> item(key = "error") { ErrorState(vm.error!!, vm::refresh) }
+                    vm.items.isEmpty() -> item(key = "empty") {
+                        EmptyState(Icons.Rounded.Search, "Nothing to show", "Try another topic, or pull down to refresh.")
+                    }
+                    else -> {
+                        val gen = vm.generation
+                        vm.items.forEachIndexed { i, v ->
+                            item(key = "$gen-${v.id}") {
+                                if (settings.compactFeed) VideoRow(v, { onVideo(v) }, Modifier.animateItem().staggeredReveal(i))
+                                else VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = Modifier.animateItem().staggeredReveal(i))
+                            }
+                            // Shorts shelves sit between videos, like the official app.
+                            if ((i == 1 || i == 11) && vm.shorts.isNotEmpty()) {
+                                val part = if (i == 1) vm.shorts.take(6) else vm.shorts.drop(6)
+                                if (part.isNotEmpty()) item(key = "$gen-shorts-$i") { ShortsShelf(part, onShorts) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (showFeedSheet) FeedSheet { showFeedSheet = false }
+}
+
+/** Small expressive logo: the app's scalloped play shape and its name. */
+@Composable
+fun AppLogo() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val shape = remember { PolygonShape(MaterialShapes.Cookie9Sided) }
+        Box(
+            Modifier.size(30.dp).clip(shape).background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.PlayArrow, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
+        }
+        Text(
+            "MaterialTube",
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.5).sp,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun Chips(chips: List<String>, selected: String, onSelect: (String) -> Unit, onExplore: () -> Unit, learning: Boolean) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        item {
+            Surface(
+                onClick = onExplore,
+                shape = RoundedCornerShape(8.dp),
+                color = if (learning) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.height(32.dp),
+            ) {
+                Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (learning) Icons.Rounded.School else Icons.Outlined.Explore, "Choose feed", Modifier.size(18.dp))
+                    if (learning) Text("Learning", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        }
+        items(chips) { c ->
+            FilterChip(
+                selected = c == selected,
+                onClick = { onSelect(c) },
+                label = { Text(c) },
+                shape = RoundedCornerShape(8.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.inverseSurface,
+                    selectedLabelColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
+                border = null,
+            )
+        }
+    }
+}
+
+/** Horizontal row of tall Shorts thumbnails. */
+@Composable
+private fun ShortsShelf(shorts: List<VideoItem>, onOpen: () -> Unit) {
+    Column(Modifier.padding(bottom = 16.dp)) {
+        Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.VideoLibrary, null, tint = MaterialTheme.colorScheme.primary)
+            Text("Shorts", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+        }
+        LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(shorts, key = { it.id }) { s ->
+                Box(
+                    Modifier
+                        .width(168.dp)
+                        .aspectRatio(9f / 16f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .clickable(onClick = onOpen),
+                ) {
+                    AsyncImage(model = s.thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    Box(
+                        Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(110.dp)
+                            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))),
+                    )
+                    Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
+                        Text(s.title, color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        s.viewsText?.let { Text(it, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Quick switch between the normal feed and the Learning feed, with topic picks. */
+@Composable
+private fun FeedSheet(onDismiss: () -> Unit) {
+    val s by AppGraph.store.settings.collectAsState()
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+            Text("Your feed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            val modes = listOf("recommended" to "Recommended", "learning" to "Learning")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                modes.forEachIndexed { i, (key, label) ->
+                    SegmentedButton(
+                        selected = s.feedMode == key,
+                        onClick = { AppGraph.store.updateSettings { it.copy(feedMode = key) } },
+                        shape = SegmentedButtonDefaults.itemShape(i, modes.size),
+                    ) { Text(label) }
+                }
+            }
+            AnimatedVisibility(s.feedMode == "learning") {
+                Column {
+                    Text(
+                        "Topics",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+                    )
+                    TopicPicker(s.learningTopics) { t -> AppGraph.store.updateSettings { it.copy(learningTopics = t) } }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun TopicPicker(selected: Set<String>, onChange: (Set<String>) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LearningTopics.all.forEach { t ->
+            val on = t.key in selected
+            FilterChip(
+                selected = on,
+                onClick = {
+                    val next = if (on) selected - t.key else selected + t.key
+                    if (next.isNotEmpty()) onChange(next)
+                },
+                label = { Text(t.label) },
+                leadingIcon = if (on) ({ Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)) }) else null,
+            )
+        }
+    }
+}
+
+// ---------------- Subscriptions ----------------
+
+class SubsViewModel : ViewModel() {
+    var items by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    var loading by mutableStateOf(false)
+        private set
+    var refreshing by mutableStateOf(false)
+        private set
+    private var loadedFor: Int = -1
+
+    fun loadIfNeeded() {
+        val key = AppGraph.store.subs.value.hashCode() * 31 + AppGraph.store.signedIn.hashCode()
+        if (key != loadedFor) load(false)
+    }
+
+    fun load(pull: Boolean) {
+        val subs = AppGraph.store.subs.value
+        loadedFor = subs.hashCode() * 31 + AppGraph.store.signedIn.hashCode()
+        if (pull) refreshing = true else loading = true
+        viewModelScope.launch {
+            val fromAccount = if (AppGraph.store.signedIn) {
+                runCatching { AppGraph.account.subscriptionFeed() }.getOrDefault(emptyList())
+            } else emptyList()
+            items = FeedFilter.apply(fromAccount.ifEmpty { runCatching { AppGraph.repo.feed(subs) }.getOrDefault(emptyList()) })
+            loading = false
+            refreshing = false
+        }
+    }
+}
+
+@Composable
+fun SubscriptionsScreen(
+    onVideo: (VideoItem) -> Unit,
+    onChannel: (String) -> Unit,
+    vm: SubsViewModel = viewModel(),
+) {
+    val subs by AppGraph.store.subs.collectAsState()
+    val cookie by AppGraph.store.cookie.collectAsState()
+    LaunchedEffect(subs, cookie) { vm.loadIfNeeded() }
+    val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
+        contentWindowInsets = WindowInsets(0),
+        topBar = { TopAppBar(title = { Text("Subscriptions") }, scrollBehavior = scroll) },
+    ) { pad ->
+        val ptr = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = vm.refreshing,
+            onRefresh = { vm.load(true) },
+            state = ptr,
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(
+                    state = ptr,
+                    isRefreshing = vm.refreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
+            modifier = Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
+        ) {
+            LazyColumn(Modifier.fillMaxSize(), state = rememberCachedListState(), contentPadding = listPadding(LocalBottomPadding.current)) {
+                if (subs.isEmpty() && !AppGraph.store.signedIn) {
+                    item {
+                        EmptyState(
+                            Icons.Rounded.Subscriptions,
+                            "No subscriptions yet",
+                            "Sign in from the You tab, or search for creators and tap Subscribe.",
+                        )
+                    }
+                    return@LazyColumn
+                }
+                if (!AppGraph.store.settings.value.hideSubsAvatars) item(key = "avatars") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(subs, key = { it.url }) { s ->
+                            Column(
+                                Modifier.width(64.dp).clickable { onChannel(s.url) },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Avatar(s.avatar, 56.dp)
+                                Text(
+                                    s.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                if (vm.loading) item(key = "loading") { SkeletonCards() }
+                else itemsIndexed(vm.items, key = { _, v -> v.id }) { i, v ->
+                    VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = Modifier.animateItem().staggeredReveal(i))
+                }
+            }
+        }
+    }
+}
+
+// ---------------- You ----------------
+
+class YouViewModel : ViewModel() {
+    var liked by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    var watchLater by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    var ytHistory by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    private var loadedFor: String? = "none"
+
+    fun load() {
+        val cookie = AppGraph.store.cookie.value
+        if (cookie == loadedFor) return
+        loadedFor = cookie
+        if (!AppGraph.store.signedIn) {
+            liked = emptyList(); watchLater = emptyList(); ytHistory = emptyList()
+            return
+        }
+        viewModelScope.launch { ytHistory = runCatching { AppGraph.account.history() }.getOrDefault(emptyList()) }
+        viewModelScope.launch { liked = runCatching { AppGraph.account.likedVideos() }.getOrDefault(emptyList()) }
+        viewModelScope.launch { watchLater = runCatching { AppGraph.account.watchLater() }.getOrDefault(emptyList()) }
+    }
+}
+
+@Composable
+fun YouScreen(
+    onVideo: (VideoItem) -> Unit,
+    onSettings: () -> Unit,
+    onSignIn: () -> Unit,
+    onPlaylist: (String) -> Unit,
+    onSwitchChannel: () -> Unit,
+    onAbout: () -> Unit,
+    vm: YouViewModel = viewModel(),
+) {
+    val account by AppGraph.store.account.collectAsState()
+    val cookie by AppGraph.store.cookie.collectAsState()
+    val localHistory by AppGraph.store.history.collectAsState()
+    LaunchedEffect(cookie) { vm.load() }
+    val signedIn = cookie?.contains("SAPISID") == true
+    val history = if (signedIn && vm.ytHistory.isNotEmpty()) vm.ytHistory else localHistory
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            TopAppBar(
+                title = { },
+                actions = { IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Settings") } },
+            )
+        },
+    ) { pad ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
+            contentPadding = listPadding(LocalBottomPadding.current),
+        ) {
+            item(key = "header") {
+                if (signedIn) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CookieAvatar(account?.avatar, 80.dp)
+                        Column(Modifier.padding(start = 16.dp).weight(1f)) {
+                            Text(account?.name ?: "Signed in", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            account?.handle?.let {
+                                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(onClick = onSwitchChannel, contentPadding = PaddingValues(0.dp)) {
+                                Text("Switch channel")
+                            }
+                        }
+                    }
+                } else {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        ShapeIcon(Icons.Rounded.AccountCircle, 112.dp, MaterialShapes.Clover8Leaf, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("Enjoy your favourite videos", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
+                        Text(
+                            "Sign in to see your feed, subscriptions, likes and Watch later.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                        )
+                        Button(onClick = onSignIn) { Text("Sign in") }
+                    }
+                }
+            }
+
+            item(key = "history-head") {
+                SectionHeader("History", if (history.isNotEmpty() && !signedIn) "Clear" else null) { AppGraph.store.clearHistory() }
+            }
+            item(key = "history") {
+                if (history.isEmpty()) {
+                    Text(
+                        "Videos you watch will appear here.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                } else {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(history.take(30), key = { "h" + it.id }) { v -> ShelfCard(v) { onVideo(v) } }
+                    }
+                }
+            }
+
+            if (signedIn) {
+                item(key = "pl-head") { SectionHeader("Playlists", null) {} }
+                item(key = "pl") {
+                    Column {
+                        PlaylistEntry(Icons.Rounded.WatchLater, "Watch later", vm.watchLater.size) { onPlaylist("VLWL") }
+                        PlaylistEntry(Icons.Rounded.ThumbUp, "Liked videos", vm.liked.size) { onPlaylist("VLLL") }
+                    }
+                }
+            }
+
+            item(key = "links") {
+                Column(Modifier.padding(top = 16.dp)) {
+                    ListItem(
+                        headlineContent = { Text("Settings") },
+                        leadingContent = { Icon(Icons.Rounded.Settings, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(onClick = onSettings),
+                    )
+                    ListItem(
+                        headlineContent = { Text("About MaterialTube") },
+                        leadingContent = { Icon(Icons.Outlined.Info, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(onClick = onAbout),
+                    )
+                    if (signedIn) {
+                        ListItem(
+                            headlineContent = { Text("Sign out") },
+                            leadingContent = { Icon(Icons.AutoMirrored.Rounded.Logout, null) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.clickable { AppGraph.signOut() },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, action: String?, onAction: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 20.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        if (action != null) OutlinedButton(onClick = onAction) { Text(action) }
+    }
+}
+
+@Composable
+private fun PlaylistEntry(icon: ImageVector, title: String, count: Int, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { if (count > 0) Text("$count videos") },
+        leadingContent = { Icon(icon, null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+// ---------------- A signed-in playlist (Watch later, Liked) ----------------
+
+class PlaylistViewModel(private val browseId: String) : ViewModel() {
+    var items by mutableStateOf<List<VideoItem>>(emptyList())
+        private set
+    var loading by mutableStateOf(true)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+
+    init { load() }
+
+    fun load() {
+        loading = true; error = null
+        viewModelScope.launch {
+            runCatching { AppGraph.account.playlist(browseId) }
+                .onSuccess { items = it }
+                .onFailure { error = it.message ?: "Couldn't load this playlist" }
+            loading = false
+        }
+    }
+}
+
+@Composable
+fun PlaylistScreen(
+    browseId: String,
+    onBack: () -> Unit,
+    onVideo: (VideoItem) -> Unit,
+    vm: PlaylistViewModel = viewModel(key = browseId) { PlaylistViewModel(browseId) },
+) {
+    val title = when (browseId) {
+        "VLWL" -> "Watch later"
+        "VLLL" -> "Liked videos"
+        else -> "Playlist"
+    }
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
+                    }
+                },
+            )
+        },
+    ) { pad ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
+            contentPadding = listPadding(LocalBottomPadding.current),
+        ) {
+            when {
+                vm.loading -> item { SkeletonCards() }
+                vm.error != null -> item { ErrorState(vm.error!!, vm::load) }
+                vm.items.isEmpty() -> item { EmptyState(Icons.Rounded.History, "Nothing here yet", "Videos you add will show up here.") }
+                else -> itemsIndexed(vm.items, key = { _, v -> v.id }) { i, v ->
+                    com.aaronateataco.materialtube.ui.components.VideoRow(v, { onVideo(v) }, Modifier.animateItem().staggeredReveal(i))
+                }
+            }
+        }
+    }
+}

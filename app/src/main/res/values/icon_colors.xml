@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="icon_bg">#FFFFDAD5</color>
+    <color name="icon_shape">#FFB3261E</color>
+    <color name="icon_play">#FFFFFFFF</color>
+</resources>

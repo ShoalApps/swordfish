@@ -7,11 +7,11 @@ plugins {
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
 android {
-    namespace = "com.aaronparry.tube"
+    namespace = "com.aaronateataco.materialtube"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.aaronparry.tube"
+        applicationId = "com.aaronateataco.materialtube"
         minSdk = 26
         targetSdk = 36
         versionCode = buildNumber

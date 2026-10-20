@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Follows the wallpaper on Android 12+ -->
+    <color name="icon_bg">@android:color/system_accent1_100</color>
+    <color name="icon_shape">@android:color/system_accent1_600</color>
+    <color name="icon_play">@android:color/system_accent1_10</color>
+</resources>

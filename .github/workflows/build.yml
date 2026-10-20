@@ -43,18 +43,59 @@ jobs:
           git push -f origin ci-log
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk Tube.apk
+        run: cp app/build/outputs/apk/release/app-release.apk MaterialTube.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Tube
-          path: Tube.apk
+          name: MaterialTube
+          path: MaterialTube.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Tube build ${{ github.run_number }}
-          body: Install Tube.apk below.
-          files: Tube.apk
+          name: MaterialTube build ${{ github.run_number }}
+          body: Install MaterialTube.apk below.
+          files: MaterialTube.apk
           make_latest: true
+
+  emulator-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: MaterialTube
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run app on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python3 ci/smoke.py MaterialTube.apk
+
+      - name: Save screenshots to ci-shots branch
+        if: always()
+        run: |
+          mkdir -p /tmp/out && cp -r shots /tmp/out/ 2>/dev/null || mkdir -p /tmp/out/shots
+          cd /tmp/out
+          git init -q
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout -q -b ci-shots
+          git add -A
+          git commit -qm "Emulator run ${{ github.run_number }}" || true
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ci-shots
