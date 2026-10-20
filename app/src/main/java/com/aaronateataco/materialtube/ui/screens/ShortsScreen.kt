@@ -194,7 +194,7 @@ class ShortsViewModel : ViewModel() {
                     if (id != null && size.width > 0 && size.height > 0) aspects[id] = size.width.toFloat() / size.height
                 }
                 override fun onPlayerError(error: PlaybackException) {
-                    slotId[slot]?.let { markFailed(it) }
+                    slotId[slot]?.let { markFailed(it, error) }
                 }
             })
         }
@@ -216,6 +216,15 @@ class ShortsViewModel : ViewModel() {
             }
         }
         load()
+    }
+
+    fun retryNetwork() {
+        networkError = null
+        failStreak = 0
+        for (slot in 0 until 3) { slotJobs[slot]?.cancel(); pool[slot].stop(); slotId[slot] = null }
+        infos.clear()
+        val cur = items.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        onPage(cur)
     }
 
     fun load() {
@@ -262,8 +271,23 @@ class ShortsViewModel : ViewModel() {
     private suspend fun info(id: String): StreamInfo =
         infos[id] ?: AppGraph.repo.stream("https://www.youtube.com/watch?v=$id").also { infos[id] = it }
 
-    /** Drop a Short that won't load; everything after it moves up one place. */
-    fun markFailed(id: String) {
+    /** Network-wide problem (bot check / VPN): shown over the feed instead of dropping Shorts. */
+    var networkError by mutableStateOf<String?>(null)
+        private set
+    private var failStreak = 0
+
+    /**
+     * Drop a Short that won't load; everything after it moves up one place.
+     * If YouTube is blocking the whole network, nothing is dropped; a message is shown instead.
+     */
+    fun markFailed(id: String, cause: Throwable? = null) {
+        val msg = cause?.message.orEmpty()
+        val networkWide = msg.contains("not a bot", true) || msg.contains("LOGIN_REQUIRED") ||
+            cause is java.io.IOException || ++failStreak > 3
+        if (networkWide) {
+            networkError = NetworkInfo.friendlyError(msg.ifBlank { "YouTube isn't letting this network play Shorts right now." })
+            return
+        }
         val index = items.indexOfFirst { it.id == id }
         if (index < 0) return
         val curIndex = items.indexOfFirst { it.id == currentId }
@@ -312,11 +336,13 @@ class ShortsViewModel : ViewModel() {
                     pool[slot].setMediaSource(src)
                     pool[slot].playWhenReady = false
                     pool[slot].prepare()
+                    failStreak = 0
+                    networkError = null
                     applyPlayState()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    markFailed(id)
+                    markFailed(id, e)
                 }
             }
         }
@@ -327,7 +353,7 @@ class ShortsViewModel : ViewModel() {
         for (i in (index - 3)..(index + 3)) {
             val v = items.getOrNull(i) ?: continue
             if (!infos.containsKey(v.id)) viewModelScope.launch {
-                try { info(v.id) } catch (e: CancellationException) { throw e } catch (e: Exception) { if (i > index) markFailed(v.id) }
+                try { info(v.id) } catch (e: CancellationException) { throw e } catch (e: Exception) { if (i > index) markFailed(v.id, e) }
             }
             if (!votes.containsKey(v.id)) viewModelScope.launch { AppGraph.ryd.votes(v.id)?.let { votes[v.id] = it } }
             SingletonImageLoader.get(AppGraph.app).enqueue(ImageRequest.Builder(AppGraph.app).data(v.thumbnail).build())
@@ -441,10 +467,22 @@ fun ShortsScreen(onChannel: (String) -> Unit, onExit: () -> Unit, vm: ShortsView
                     val item = vm.items[page]
                     ShortPage(vm, item, isCurrent = item.id == vm.currentId, layout = layout, onChannel = onChannel, onComments = { commentsFor = item })
                 }
+                vm.networkError?.let { msg ->
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                    ) {
+                        Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(msg, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                            Button(onClick = vm::retryNetwork, modifier = Modifier.padding(top = 12.dp)) { Text("Try again") }
+                        }
+                    }
+                }
             }
         }
         // Header, no shading: the text carries its own soft shadow.
-        if (vm.limitReached == null) {
+        if (vm.limitReached == null && vm.error == null && !vm.loading) {
             Text(
                 when (layout) { "reels" -> "Reels"; "tiktok" -> "For You"; else -> "Shorts" },
                 color = Color.White,
