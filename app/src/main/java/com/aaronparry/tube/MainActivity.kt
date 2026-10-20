@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
         } ?: return
         val url = Regex("""https?://\S+""").find(text)?.value ?: return
         if (Regex("""(youtube\.com/(watch|shorts|live)|youtu\.be/)""").containsMatchIn(url)) {
-            playerVm.openUrl(url)
+            playerVm.openUrl(url, com.aaronparry.tube.ui.Links.startSeconds(url))
         }
     }
 }

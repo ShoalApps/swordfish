@@ -52,10 +52,14 @@ import com.aaronparry.tube.ui.components.listPadding
 private val qualityOptions = listOf(2160, 1440, 1080, 720, 480, 360, 240, 144)
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onSignIn: () -> Unit) {
     val store = AppGraph.store
     val s by store.settings.collectAsState()
-    var qualityDialog by remember { mutableStateOf(false) }
+    val account by store.account.collectAsState()
+    val cookie by store.cookie.collectAsState()
+    val signedIn = cookie?.contains("SAPISID") == true
+    // which setting the quality dialog is editing: "wifi", "mobile" or null
+    var qualityDialog by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -70,6 +74,35 @@ fun SettingsScreen(onBack: () -> Unit) {
             Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
             contentPadding = listPadding(LocalBottomPadding.current),
         ) {
+            item { Section("Account") }
+            item {
+                if (signedIn) {
+                    ListItem(
+                        headlineContent = { Text(account?.name ?: "Signed in") },
+                        supportingContent = { Text(account?.handle ?: "YouTube account") },
+                        trailingContent = { TextButton(onClick = { AppGraph.signOut() }) { Text("Sign out") } },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                } else {
+                    ListItem(
+                        headlineContent = { Text("Sign in to YouTube") },
+                        supportingContent = { Text("Your feed, subscriptions, likes and Watch later") },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable(onClick = onSignIn),
+                    )
+                }
+            }
+            if (signedIn) {
+                item {
+                    ListItem(
+                        headlineContent = { Text("Import subscriptions from YouTube") },
+                        supportingContent = { Text("Adds any channels you follow on YouTube") },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { AppGraph.syncAccount() },
+                    )
+                }
+            }
+
             item { Section("Appearance") }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -94,15 +127,25 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
 
-            item { Section("Playback") }
+            item { Section("Video quality preferences") }
             item {
                 ListItem(
-                    headlineContent = { Text("Preferred quality") },
-                    supportingContent = { Text("${s.quality}p") },
+                    headlineContent = { Text("On Wi-Fi") },
+                    supportingContent = { Text("${s.qualityWifi}p") },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable { qualityDialog = true },
+                    modifier = Modifier.clickable { qualityDialog = "wifi" },
                 )
             }
+            item {
+                ListItem(
+                    headlineContent = { Text("On mobile networks") },
+                    supportingContent = { Text("${s.qualityMobile}p") },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { qualityDialog = "mobile" },
+                )
+            }
+
+            item { Section("Playback") }
             item {
                 Toggle("Background play", "Keep audio playing with the screen off or app closed", s.backgroundPlay) { v ->
                     store.updateSettings { it.copy(backgroundPlay = v) }
@@ -176,26 +219,30 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    if (qualityDialog) {
+    val editing = qualityDialog
+    if (editing != null) {
+        val current = if (editing == "wifi") s.qualityWifi else s.qualityMobile
         AlertDialog(
-            onDismissRequest = { qualityDialog = false },
-            title = { Text("Preferred quality") },
+            onDismissRequest = { qualityDialog = null },
+            title = { Text(if (editing == "wifi") "Quality on Wi-Fi" else "Quality on mobile networks") },
             text = {
                 Column {
                     qualityOptions.forEach { q ->
                         ListItem(
-                            headlineContent = { Text("${q}p") },
-                            leadingContent = { RadioButton(selected = s.quality == q, onClick = null) },
+                            headlineContent = { Text(if (q == 1080) "${q}p (default)" else "${q}p") },
+                            leadingContent = { RadioButton(selected = current == q, onClick = null) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable {
-                                store.updateSettings { it.copy(quality = q) }
-                                qualityDialog = false
+                                store.updateSettings {
+                                    if (editing == "wifi") it.copy(qualityWifi = q) else it.copy(qualityMobile = q)
+                                }
+                                qualityDialog = null
                             },
                         )
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { qualityDialog = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { qualityDialog = null }) { Text("Close") } },
         )
     }
 }

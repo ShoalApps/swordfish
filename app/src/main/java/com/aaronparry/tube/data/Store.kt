@@ -17,7 +17,8 @@ data class Settings(
     val sbSkip: Set<String> = setOf("sponsor", "selfpromo", "interaction"),
     val deArrow: Boolean = true,
     val ryd: Boolean = true,
-    val quality: Int = 1080,
+    val qualityWifi: Int = 1080,
+    val qualityMobile: Int = 1080,
     val backgroundPlay: Boolean = true,
     val autoPip: Boolean = true,
 )
@@ -25,7 +26,10 @@ data class Settings(
 @Serializable
 data class Sub(val url: String, val name: String, val avatar: String? = null)
 
-/** Settings, subscriptions and history, saved on the phone. */
+@Serializable
+data class Account(val name: String, val handle: String? = null, val avatar: String? = null)
+
+/** Settings, subscriptions, history and sign-in, saved privately on the phone. */
 class Store(context: Context) {
     private val prefs = context.getSharedPreferences("tube", Context.MODE_PRIVATE)
 
@@ -38,6 +42,14 @@ class Store(context: Context) {
     private val _history = MutableStateFlow(load<List<VideoItem>>("history") ?: emptyList())
     val history: StateFlow<List<VideoItem>> = _history
 
+    private val _cookie = MutableStateFlow(prefs.getString("cookie", null))
+    val cookie: StateFlow<String?> = _cookie
+
+    private val _account = MutableStateFlow(load<Account>("account"))
+    val account: StateFlow<Account?> = _account
+
+    val signedIn: Boolean get() = _cookie.value?.contains("SAPISID") == true
+
     fun updateSettings(change: (Settings) -> Settings) {
         _settings.update(change)
         save("settings", _settings.value)
@@ -45,9 +57,18 @@ class Store(context: Context) {
 
     fun isSubscribed(url: String?) = url != null && _subs.value.any { it.url == url }
 
-    fun toggleSub(sub: Sub) {
+    /** Returns true if now subscribed. */
+    fun toggleSub(sub: Sub): Boolean {
+        val nowSubscribed = !isSubscribed(sub.url)
+        _subs.update { list -> if (nowSubscribed) list + sub else list.filterNot { it.url == sub.url } }
+        save("subs", _subs.value)
+        return nowSubscribed
+    }
+
+    fun mergeSubs(incoming: List<Sub>) {
         _subs.update { list ->
-            if (list.any { it.url == sub.url }) list.filterNot { it.url == sub.url } else list + sub
+            val known = list.map { it.url }.toSet()
+            list + incoming.filterNot { it.url in known }
         }
         save("subs", _subs.value)
     }
@@ -60,6 +81,16 @@ class Store(context: Context) {
     fun clearHistory() {
         _history.value = emptyList()
         save("history", _history.value)
+    }
+
+    fun setCookie(cookie: String?) {
+        _cookie.value = cookie
+        prefs.edit().putString("cookie", cookie).apply()
+    }
+
+    fun setAccount(account: Account?) {
+        _account.value = account
+        if (account == null) prefs.edit().remove("account").apply() else save("account", account)
     }
 
     private inline fun <reified T> load(key: String): T? =

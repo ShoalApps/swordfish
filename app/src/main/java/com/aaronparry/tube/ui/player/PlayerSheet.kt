@@ -126,6 +126,39 @@ import com.aaronparry.tube.ui.components.ErrorState
 import com.aaronparry.tube.ui.components.SubscribeButton
 import com.aaronparry.tube.ui.components.VideoCard
 import com.aaronparry.tube.ui.components.rememberBranding
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import coil3.compose.AsyncImage
+import com.aaronparry.tube.data.Comment
+import com.aaronparry.tube.player.Rating
+import com.aaronparry.tube.ui.Links
+import com.aaronparry.tube.ui.components.CenterLoading
+import com.aaronparry.tube.ui.components.LaunchOrigin
+import com.aaronparry.tube.ui.components.pressScale
+import com.aaronparry.tube.ui.components.shareVideo
+import com.aaronparry.tube.ui.components.staggeredReveal
+import com.aaronparry.tube.ui.components.toast
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -145,14 +178,42 @@ fun PlayerSheet(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val slowSpatial = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    // Animate the sheet whenever the view model asks (open / collapse).
-    LaunchedEffect(vm.sheetNonce) { vm.expand.animateTo(vm.sheetTarget, spatial) }
+    // Container transform: the tapped thumbnail grows into the player.
+    val launch = remember { Animatable(1f) }
+    var launchFrom by remember { mutableStateOf<Rect?>(null) }
+    // Predictive back: the page shrinks as you swipe back.
+    val back = remember { Animatable(0f) }
+
+    LaunchedEffect(vm.sheetNonce) {
+        val origin = if (vm.sheetTarget == 1f && vm.expand.value < 0.5f) LaunchOrigin.take(vm.current?.id) else LaunchOrigin.take(null)
+        if (origin != null) {
+            launchFrom = origin
+            vm.expand.snapTo(1f)
+            launch.snapTo(0f)
+            launch.animateTo(1f, slowSpatial)
+            launchFrom = null
+        } else {
+            vm.expand.animateTo(vm.sheetTarget, spatial)
+        }
+    }
 
     val p = vm.expand.value
     val isFullscreen = vm.fullscreen || (landscape && p > 0.99f)
     FullscreenEffect(isFullscreen, vm)
+
+    PredictiveBackHandler(enabled = p > 0.5f && !isFullscreen) { events ->
+        try {
+            events.collect { e -> back.snapTo(e.progress) }
+            vm.collapse()
+            scope.launch { back.animateTo(0f, spatial) }
+        } catch (e: CancellationException) {
+            scope.launch { back.animateTo(0f, spatial) }
+            throw e
+        }
+    }
 
     if (isFullscreen) {
         BackHandler { vm.fullscreen = false }
@@ -163,10 +224,9 @@ fun PlayerSheet(
         return
     }
 
-    BackHandler(enabled = p > 0.5f) { vm.collapse() }
-
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val fullH = constraints.maxHeight.toFloat()
+        val fullW = constraints.maxWidth.toFloat()
         val statusTop = WindowInsets.statusBars.getTop(density).toFloat()
         val navBottom = WindowInsets.navigationBars.getBottom(density).toFloat()
         val miniH = with(density) { MiniHeight.toPx() }
@@ -187,15 +247,18 @@ fun PlayerSheet(
             vm.expand.animateTo(target, spatial, initialVelocity = -velocity / travel)
         }
 
+        val b = back.value
         val top = lerpF(miniTop, 0f, p)
         val height = lerpF(miniH, fullH, p)
         val sidePad = lerp(8.dp, 0.dp, p)
-        val corner = lerp(18.dp, 0.dp, p)
+        val corner = maxOf(lerp(18.dp, 0.dp, p), lerp(0.dp, 32.dp, b))
         val bg = lerp(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.surface, p)
         val videoWidthFull = maxWidth
         val videoW = lerp(MiniHeight * 16f / 9f, videoWidthFull, p)
         val videoH = lerp(MiniHeight, videoWidthFull * 9f / 16f, p)
         val statusPad = with(density) { (statusTop * p).toDp() }
+        val launching = launchFrom != null
+        val l = launch.value
 
         Surface(
             color = bg,
@@ -203,6 +266,13 @@ fun PlayerSheet(
             shadowElevation = lerp(6.dp, 0.dp, p),
             modifier = Modifier
                 .offset { IntOffset(0, top.roundToInt()) }
+                .graphicsLayer {
+                    val s = 1f - 0.1f * b
+                    scaleX = s
+                    scaleY = s
+                    transformOrigin = TransformOrigin(0.5f, 0.35f)
+                    alpha = if (launching) l.coerceIn(0f, 1f) else 1f
+                }
                 .padding(horizontal = sidePad)
                 .fillMaxWidth()
                 .height(with(density) { height.toDp() }),
@@ -251,9 +321,39 @@ fun PlayerSheet(
                     }
                 }
                 if (p > 0.02f) {
-                    WatchDetails(vm, onChannel, Modifier.weight(1f).alpha(p))
+                    WatchDetails(
+                        vm,
+                        onChannel,
+                        Modifier
+                            .weight(1f)
+                            .alpha(p)
+                            .graphicsLayer {
+                                translationY = if (launching) (1f - l) * 64.dp.toPx() else 0f
+                            },
+                    )
                 }
             }
+        }
+
+        // The thumbnail flying from the feed into the player.
+        val from = launchFrom
+        if (from != null) {
+            val toTop = statusTop
+            val toH = fullW * 9f / 16f
+            val x = lerpF(from.left, 0f, l)
+            val y = lerpF(from.top, toTop, l)
+            val w = lerpF(from.width, fullW, l)
+            val h = lerpF(from.height, toH, l)
+            AsyncImage(
+                model = vm.current?.thumbnail,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
+                    .size(with(density) { w.toDp() }, with(density) { h.toDp() })
+                    .clip(RoundedCornerShape(lerp(12.dp, 0.dp, l.coerceIn(0f, 1f))))
+                    .background(Color.Black),
+            )
         }
     }
 }
@@ -289,12 +389,21 @@ private fun MiniInfo(vm: PlayerViewModel, modifier: Modifier) {
 /** Draws video onto a TextureView so it animates smoothly with the sheet. */
 @Composable
 fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
-    Box(modifier, contentAlignment = Alignment.Center) {
+    Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
         AndroidView(
             factory = { ctx -> TextureView(ctx).also { vm.player.setVideoTextureView(it) } },
             onRelease = { vm.player.clearVideoTextureView(it) },
             modifier = Modifier.fillMaxSize().wrapContentSize().aspectRatio(vm.aspect),
         )
+        // Show the thumbnail until the first video frame arrives, like the official app.
+        androidx.compose.animation.AnimatedVisibility(!vm.firstFrame, enter = fadeIn(), exit = fadeOut()) {
+            AsyncImage(
+                model = vm.current?.thumbnail,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
@@ -588,7 +697,23 @@ private fun PlayerOptionsSheet(vm: PlayerViewModel, onDismiss: () -> Unit) {
     }
 }
 
-// ---------------- Watch page details ----------------
+// ---------------- Watch page details (laid out like the official app) ----------------
+
+@Composable
+private fun rememberHtml(html: String?, onLink: (String) -> Unit): AnnotatedString {
+    val linkColor = MaterialTheme.colorScheme.primary
+    return remember(html, linkColor) {
+        if (html.isNullOrBlank()) return@remember AnnotatedString("")
+        val prepared = if (html.contains("<br", ignoreCase = true)) html else html.replace("\n", "<br>")
+        runCatching {
+            AnnotatedString.fromHtml(
+                prepared,
+                linkStyles = TextLinkStyles(SpanStyle(color = linkColor)),
+                linkInteractionListener = { link -> (link as? LinkAnnotation.Url)?.url?.let(onLink) },
+            )
+        }.getOrElse { AnnotatedString(html) }
+    }
+}
 
 @Composable
 private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modifier: Modifier) {
@@ -596,29 +721,58 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
     val info = vm.info
     val subs by AppGraph.store.subs.collectAsState()
     val context = LocalContext.current
+    var showDescription by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(false) }
+    val onLink: (String) -> Unit = { url ->
+        Links.route(
+            context = context,
+            url = url,
+            currentVideoId = info?.id ?: item?.id,
+            seekToMs = { ms ->
+                vm.seekTo(ms)
+                showDescription = false
+                showComments = false
+            },
+            openVideo = { u, start ->
+                showDescription = false
+                showComments = false
+                vm.openUrl(u, start)
+            },
+            openChannel = { url2 ->
+                showDescription = false
+                showComments = false
+                onChannel(url2)
+            },
+        )
+    }
 
     LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
         if (item != null) {
             item(key = "head") {
                 val branding = rememberBranding(item)
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { showDescription = true }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                ) {
                     Text(
                         branding?.title ?: item.title,
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp, lineHeight = 25.sp),
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     val meta = listOfNotNull(
-                        info?.viewCount?.takeIf { it >= 0 }?.let { "${formatCount(it)} views" },
+                        info?.viewCount?.takeIf { it >= 0 }?.let { "${formatCount(it)} views" } ?: item.viewsText,
                         info?.textualUploadDate ?: item.uploaded,
-                    ).joinToString(" · ")
-                    if (meta.isNotBlank()) {
-                        Text(
-                            meta,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
+                    ).joinToString("  ")
+                    Text(
+                        "$meta  ...more".trim(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
             }
             item(key = "channel") {
@@ -627,94 +781,51 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                     Modifier
                         .fillMaxWidth()
                         .clickable(enabled = channelUrl != null) { channelUrl?.let(onChannel) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Avatar(item.channelAvatar, 40.dp)
-                    Column(Modifier.padding(horizontal = 12.dp).weight(1f)) {
-                        Text(item.channelName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val subCount = info?.uploaderSubscriberCount ?: -1L
-                        if (subCount >= 0) {
-                            Text(
-                                "${formatCount(subCount)} subscribers",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    Avatar(item.channelAvatar ?: info?.uploaderAvatars?.firstOrNull()?.url, 36.dp)
+                    Text(
+                        item.channelName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 12.dp).weight(1f, fill = false),
+                    )
+                    val subCount = info?.uploaderSubscriberCount ?: -1L
+                    Text(
+                        if (subCount >= 0) formatCount(subCount) else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp).weight(1f),
+                    )
                     if (channelUrl != null) {
                         SubscribeButton(subs.any { it.url == channelUrl }) {
-                            AppGraph.store.toggleSub(Sub(channelUrl, item.channelName, item.channelAvatar))
+                            AppGraph.toggleSubscribe(Sub(channelUrl, item.channelName, item.channelAvatar))
                         }
                     }
                 }
             }
             item(key = "actions") {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    item {
-                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-                            Row(Modifier.padding(horizontal = 16.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.ThumbUp, "Likes", Modifier.size(18.dp))
-                                val likes = info?.likeCount?.takeIf { it >= 0 } ?: vm.votes?.likes
-                                Text(likes?.let(::formatCount) ?: "", Modifier.padding(start = 8.dp, end = 12.dp), style = MaterialTheme.typography.labelLarge)
-                                Box(Modifier.width(1.dp).height(18.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                                Icon(Icons.Rounded.ThumbDown, "Dislikes", Modifier.padding(start = 12.dp).size(18.dp))
-                                AnimatedContent(vm.votes?.dislikes, label = "dislikes") { d ->
-                                    Text(d?.let(::formatCount) ?: "", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelLarge)
-                                }
+                    item { LikePill(vm) }
+                    item { ActionChip(Icons.Rounded.Share, "Share") { shareVideo(context, item.url) } }
+                    if (AppGraph.store.signedIn) {
+                        item {
+                            ActionChip(Icons.AutoMirrored.Rounded.PlaylistAdd, "Save") {
+                                AppGraph.scope.launch { runCatching { AppGraph.account.saveToWatchLater(item.id) } }
+                                toast(context, "Saved to Watch later")
                             }
-                        }
-                    }
-                    item {
-                        FilledTonalButton(onClick = {
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, item.url)
-                            }
-                            context.startActivity(Intent.createChooser(send, "Share video"))
-                        }) {
-                            Icon(Icons.Rounded.Share, null, Modifier.size(18.dp))
-                            Text("Share", Modifier.padding(start = 8.dp))
                         }
                     }
                 }
             }
-            item(key = "desc") {
-                var expanded by remember(item.id) { mutableStateOf(false) }
-                val html = info?.description?.content
-                if (!html.isNullOrBlank()) {
-                    val text = remember(html) {
-                        runCatching { AnnotatedString.fromHtml(html.replace("\n", "<br>")) }
-                            .getOrElse { AnnotatedString(html) }
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable { expanded = !expanded }
-                            .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text(
-                                text,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = if (expanded) Int.MAX_VALUE else 3,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                if (expanded) "Show less" else "…more",
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                        }
-                    }
-                }
+            item(key = "comments") {
+                CommentsTeaser(vm) { showComments = true }
             }
         }
         when {
@@ -725,16 +836,243 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                 }
             }
         }
-        if (vm.related.isNotEmpty()) {
-            item(key = "upnext") {
-                Text(
-                    "Up next",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+        itemsIndexed(vm.related, key = { _, v -> "r" + v.id }) { i, v ->
+            VideoCard(
+                v,
+                onClick = { vm.open(v) },
+                onChannel = onChannel,
+                modifier = Modifier.animateItem().staggeredReveal(i),
+            )
+        }
+    }
+
+    if (showDescription && item != null) DescriptionSheet(vm, onLink) { showDescription = false }
+    if (showComments) CommentsSheet(vm, onLink) { showComments = false }
+}
+
+@Composable
+private fun LikePill(vm: PlayerViewModel) {
+    val context = LocalContext.current
+    val info = vm.info
+    val likes = info?.likeCount?.takeIf { it >= 0 } ?: vm.votes?.likes
+    val dislikes = vm.votes?.dislikes
+    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RateButton(
+                icon = if (vm.rating == Rating.LIKE) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
+                label = likes?.let(::formatCount).orEmpty(),
+                active = vm.rating == Rating.LIKE,
+            ) { if (!vm.rate(Rating.LIKE)) toast(context, "Sign in to save likes to YouTube") }
+            Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outlineVariant))
+            RateButton(
+                icon = if (vm.rating == Rating.DISLIKE) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDown,
+                label = dislikes?.let(::formatCount).orEmpty(),
+                active = vm.rating == Rating.DISLIKE,
+            ) { if (!vm.rate(Rating.DISLIKE)) toast(context, "Sign in to save dislikes to YouTube") }
+        }
+    }
+}
+
+/** Thumb icon that pops when you tap it. */
+@Composable
+private fun RateButton(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit) {
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(active) {
+        if (active) {
+            pop.animateTo(1.4f, tween(110))
+            pop.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 500f))
+        }
+    }
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            icon,
+            null,
+            Modifier.size(20.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+            tint = if (active) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+        )
+        AnimatedContent(label, label = "count") { text ->
+            if (text.isNotEmpty()) {
+                Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionChip(icon: ImageVector, label: String, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        interactionSource = source,
+        modifier = Modifier.pressScale(source, 0.92f),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
+        }
+    }
+}
+
+@Composable
+private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
+    val first = vm.comments.firstOrNull()
+    Surface(
+        onClick = onOpen,
+        enabled = first != null,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(12.dp).animateContentSize()) {
+            Text("Comments", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            when {
+                first != null -> Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(first.avatar, 24.dp)
+                    val plain = remember(first.html) {
+                        runCatching { AnnotatedString.fromHtml(first.html).text }.getOrDefault(first.html)
+                    }
+                    Text(
+                        plain,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+                vm.commentsLoading || vm.info == null -> Text(
+                    "Loading comments…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                else -> Text(
+                    "Comments are turned off or unavailable",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
-            items(vm.related, key = { "r" + it.id }) { v: VideoItem ->
-                VideoCard(v, onClick = { vm.open(v) }, onChannel = onChannel, modifier = Modifier.animateItem())
+        }
+    }
+}
+
+@Composable
+private fun DescriptionSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismiss: () -> Unit) {
+    val item = vm.current ?: return
+    val info = vm.info
+    val text = rememberHtml(info?.description?.content, onLink)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+            item {
+                Text(
+                    "Description",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                Text(
+                    rememberBranding(item)?.title ?: item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    Stat(info?.likeCount?.takeIf { it >= 0 }?.let(::formatCount) ?: "–", "Likes")
+                    Stat(info?.viewCount?.takeIf { it >= 0 }?.let(::formatCount) ?: "–", "Views")
+                    Stat(info?.textualUploadDate ?: item.uploaded ?: "–", "Uploaded")
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                ) {
+                    Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(14.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun CommentsSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
+        Text(
+            "Comments",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        HorizontalDivider(Modifier.padding(top = 12.dp))
+        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+            itemsIndexed(vm.comments) { i, c ->
+                CommentRow(c, onLink)
+                if (i >= vm.comments.size - 4 && vm.hasMoreComments) {
+                    LaunchedEffect(i) { vm.loadComments() }
+                }
+            }
+            if (vm.commentsLoading) item { CenterLoading() }
+        }
+    }
+}
+
+@Composable
+private fun CommentRow(c: Comment, onLink: (String) -> Unit) {
+    val text = rememberHtml(c.html, onLink)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Avatar(c.avatar, 28.dp)
+        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (c.pinned) Icon(Icons.Rounded.PushPin, "Pinned", Modifier.size(14.dp).padding(end = 2.dp))
+                Text(
+                    listOfNotNull(c.author, c.date).joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.ThumbUp, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (c.likes > 0) {
+                    Text(
+                        formatCount(c.likes.toLong()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+                if (c.hearted) {
+                    Icon(Icons.Rounded.Favorite, "Hearted by creator", Modifier.padding(start = 12.dp).size(16.dp), tint = Color(0xFFE53935))
+                }
+                if (c.replies > 0) {
+                    Text(
+                        "${c.replies} ${if (c.replies == 1) "reply" else "replies"}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
             }
         }
     }

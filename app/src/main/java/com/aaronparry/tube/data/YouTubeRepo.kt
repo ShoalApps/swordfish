@@ -12,6 +12,8 @@ import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
+import org.schabi.newpipe.extractor.comments.CommentsInfo
+import org.schabi.newpipe.extractor.comments.CommentsInfoItem
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfo
@@ -107,5 +109,39 @@ class YouTubeRepo {
         }.awaitAll()
             .flatten()
             .sortedByDescending { it.uploadedEpoch ?: 0L }
+    }
+
+    suspend fun comments(url: String, page: Page? = null): Paged<Comment> = withContext(Dispatchers.IO) {
+        if (page == null) {
+            val info = CommentsInfo.getInfo(yt, url)
+            Paged(info.relatedItems.filterIsInstance<CommentsInfoItem>().map { it.toComment() }, info.nextPage.orNull())
+        } else {
+            val more = CommentsInfo.getMoreItems(yt, url, page)
+            Paged(more.items.filterIsInstance<CommentsInfoItem>().map { it.toComment() }, more.nextPage.orNull())
+        }
+    }
+
+    private fun CommentsInfoItem.toComment() = Comment(
+        author = uploaderName ?: "",
+        avatar = uploaderAvatars.smallUrl(),
+        html = commentText?.content ?: "",
+        likes = likeCount,
+        date = textualUploadDate,
+        replies = replyCount,
+        pinned = isPinned,
+        hearted = isHeartedByUploader,
+    )
+
+    /** Shorts for people who aren't signed in: a few Shorts-flavoured searches. */
+    suspend fun shorts(): List<VideoItem> = coroutineScope {
+        listOf("#shorts", "shorts trending", "#shorts funny").map { q ->
+            async { runCatching { search(q).items }.getOrDefault(emptyList()) }
+        }.awaitAll()
+            .flatten()
+            .filterIsInstance<Entry.Video>()
+            .map { it.item }
+            .filter { it.isShort || it.url.contains("/shorts/") || it.durationSec in 1..180 }
+            .distinctBy { it.id }
+            .shuffled()
     }
 }

@@ -383,7 +383,7 @@ fun ChannelScreen(
                         }
                         Box(Modifier.fillMaxWidth().padding(16.dp)) {
                             SubscribeButton(subs.any { it.url == d.url || it.url == url }) {
-                                AppGraph.store.toggleSub(Sub(url, d.name, d.avatar))
+                                AppGraph.toggleSubscribe(Sub(url, d.name, d.avatar))
                             }
                         }
                     }

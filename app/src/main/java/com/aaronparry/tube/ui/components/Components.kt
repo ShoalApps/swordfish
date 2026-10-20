@@ -2,19 +2,24 @@
 
 package com.aaronparry.tube.ui.components
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,18 +40,28 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -57,32 +72,54 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import androidx.compose.runtime.collectAsState
 import com.aaronparry.tube.AppGraph
 import com.aaronparry.tube.data.Branding
 import com.aaronparry.tube.data.ChannelItem
+import com.aaronparry.tube.data.Sub
 import com.aaronparry.tube.data.VideoItem
 import com.aaronparry.tube.data.formatCount
 import com.aaronparry.tube.data.formatDuration
 import com.aaronparry.tube.data.subtitle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Extra space lists need at the bottom (nav bar / mini player). */
 val LocalBottomPadding = staticCompositionLocalOf { 0.dp }
 
 fun listPadding(bottom: Dp, top: Dp = 0.dp) = PaddingValues(top = top, bottom = bottom + 8.dp)
 
+/** Where a tapped thumbnail was on screen, so the player can zoom out of it. */
+object LaunchOrigin {
+    private var id: String? = null
+    private var rect: Rect? = null
+
+    fun set(videoId: String, bounds: Rect) { id = videoId; rect = bounds }
+
+    fun take(videoId: String?): Rect? {
+        val r = if (videoId != null && videoId == id) rect else null
+        id = null; rect = null
+        return r
+    }
+}
+
 /** Expressive "squish" when pressed. */
 @Composable
-fun Modifier.pressScale(source: MutableInteractionSource, pressed: Float = 0.96f): Modifier {
+fun Modifier.pressScale(source: MutableInteractionSource, pressed: Float = 0.97f): Modifier {
     val isPressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) pressed else 1f,
@@ -90,6 +127,23 @@ fun Modifier.pressScale(source: MutableInteractionSource, pressed: Float = 0.96f
         label = "press",
     )
     return graphicsLayer { scaleX = scale; scaleY = scale }
+}
+
+/** Items rise and fade in one after another the first time a list appears. */
+@Composable
+fun Modifier.staggeredReveal(index: Int): Modifier {
+    val anim = remember { Animatable(if (index < 10) 0f else 1f) }
+    val density = LocalDensity.current
+    LaunchedEffect(Unit) {
+        if (anim.value < 1f) {
+            delay(index * 45L)
+            anim.animateTo(1f, tween(380))
+        }
+    }
+    return graphicsLayer {
+        alpha = anim.value
+        translationY = with(density) { 24.dp.toPx() } * (1f - anim.value)
+    }
 }
 
 /** DeArrow title + thumbnail for a video, if enabled. */
@@ -106,12 +160,26 @@ fun rememberBranding(item: VideoItem): Branding? {
     return state
 }
 
+fun shareVideo(context: Context, url: String) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, url)
+    }
+    context.startActivity(Intent.createChooser(send, "Share"))
+}
+
+fun openExternal(context: Context, url: String) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+}
+
+fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+
 @Composable
 fun Thumbnail(
     item: VideoItem,
     branding: Branding?,
     modifier: Modifier = Modifier,
-    corner: Dp = 16.dp,
+    corner: Dp = 0.dp,
     showBadge: Boolean = true,
 ) {
     var dearrowFailed by remember(item.id) { mutableStateOf(false) }
@@ -136,13 +204,13 @@ fun Thumbnail(
                     text = label,
                     color = Color.White,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(8.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (item.isLive) Color(0xFFCC0000) else Color.Black.copy(alpha = 0.78f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (item.isLive) Color(0xFFCC0000) else Color.Black.copy(alpha = 0.8f))
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
                 )
             }
         }
@@ -151,18 +219,59 @@ fun Thumbnail(
 
 @Composable
 fun Avatar(url: String?, size: Dp, modifier: Modifier = Modifier) {
-    AsyncImage(
-        model = url,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier
+    Box(
+        modifier
             .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url == null) {
+            Icon(Icons.Rounded.AccountCircle, null, Modifier.fillMaxSize(), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
+    }
 }
 
-/** Full-width card, like the official app's home feed. */
+/** The ⋮ menu on every video. */
+@Composable
+fun VideoMenu(item: VideoItem, onChannel: ((String) -> Unit)?) {
+    val context = LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Rounded.MoreVert, "More", Modifier.size(20.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(16.dp)) {
+            if (AppGraph.store.signedIn) {
+                DropdownMenuItem(
+                    text = { Text("Save to Watch later") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
+                    onClick = {
+                        open = false
+                        AppGraph.scope.launch { runCatching { AppGraph.account.saveToWatchLater(item.id) } }
+                        toast(context, "Saved to Watch later")
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Share") },
+                leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                onClick = { open = false; shareVideo(context, item.url) },
+            )
+            if (onChannel != null && item.channelUrl != null) {
+                DropdownMenuItem(
+                    text = { Text("Go to channel") },
+                    leadingIcon = { Icon(Icons.Rounded.AccountCircle, null) },
+                    onClick = { open = false; onChannel(item.channelUrl) },
+                )
+            }
+        }
+    }
+}
+
+/** Full-width card, laid out like the official app's home feed. */
 @Composable
 fun VideoCard(
     item: VideoItem,
@@ -172,16 +281,19 @@ fun VideoCard(
 ) {
     val branding = rememberBranding(item)
     val source = remember { MutableInteractionSource() }
+    var bounds by remember { mutableStateOf<Rect?>(null) }
     Column(
         modifier
             .fillMaxWidth()
-            .pressScale(source)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .pressScale(source, 0.98f)
+            .clickable(interactionSource = source, indication = ripple()) {
+                bounds?.let { LaunchOrigin.set(item.id, it) }
+                onClick()
+            }
+            .padding(bottom = 16.dp),
     ) {
-        Thumbnail(item, branding, Modifier.fillMaxWidth())
-        Row(Modifier.padding(top = 10.dp, start = 2.dp, end = 2.dp)) {
+        Thumbnail(item, branding, Modifier.fillMaxWidth().onGloballyPositioned { bounds = it.boundsInRoot() })
+        Row(Modifier.padding(start = 12.dp, top = 12.dp)) {
             Avatar(
                 url = item.channelAvatar,
                 size = 36.dp,
@@ -197,7 +309,8 @@ fun VideoCard(
                 ) { title ->
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 20.sp),
+                        fontWeight = FontWeight.Medium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -211,24 +324,33 @@ fun VideoCard(
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
+            VideoMenu(item, onChannel)
         }
     }
 }
 
-/** Compact row: small thumbnail on the left (history, related on wide screens). */
+/** Compact row: small thumbnail on the left (history, playlists). */
 @Composable
 fun VideoRow(item: VideoItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val branding = rememberBranding(item)
     val source = remember { MutableInteractionSource() }
+    var bounds by remember { mutableStateOf<Rect?>(null) }
     Row(
         modifier
             .fillMaxWidth()
-            .pressScale(source, 0.97f)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(interactionSource = source, indication = androidx.compose.material3.ripple(), onClick = onClick)
+            .pressScale(source)
+            .clickable(interactionSource = source, indication = ripple()) {
+                bounds?.let { LaunchOrigin.set(item.id, it) }
+                onClick()
+            }
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Thumbnail(item, branding, Modifier.width(164.dp), corner = 12.dp)
+        Thumbnail(
+            item,
+            branding,
+            Modifier.width(164.dp).onGloballyPositioned { bounds = it.boundsInRoot() },
+            corner = 8.dp,
+        )
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Text(
                 text = branding?.title ?: item.title,
@@ -245,6 +367,41 @@ fun VideoRow(item: VideoItem, onClick: () -> Unit, modifier: Modifier = Modifier
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
+        VideoMenu(item, null)
+    }
+}
+
+/** Small card for horizontal shelves (You tab). */
+@Composable
+fun ShelfCard(item: VideoItem, onClick: () -> Unit) {
+    val branding = rememberBranding(item)
+    val source = remember { MutableInteractionSource() }
+    var bounds by remember { mutableStateOf<Rect?>(null) }
+    Column(
+        Modifier
+            .width(160.dp)
+            .pressScale(source)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(interactionSource = source, indication = ripple()) {
+                bounds?.let { LaunchOrigin.set(item.id, it) }
+                onClick()
+            },
+    ) {
+        Thumbnail(item, branding, Modifier.fillMaxWidth().onGloballyPositioned { bounds = it.boundsInRoot() }, corner = 10.dp)
+        Text(
+            branding?.title ?: item.title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Text(
+            item.channelName,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -259,7 +416,7 @@ fun ChannelRow(item: ChannelItem, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(item.avatar, 64.dp)
+        Box(Modifier.width(96.dp), contentAlignment = Alignment.Center) { Avatar(item.avatar, 80.dp) }
         Column(Modifier.padding(horizontal = 16.dp).weight(1f)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (item.subscribers >= 0) {
@@ -269,34 +426,36 @@ fun ChannelRow(item: ChannelItem, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-        SubscribeButton(subscribed) {
-            AppGraph.store.toggleSub(com.aaronparry.tube.data.Sub(item.url, item.name, item.avatar))
+            Spacer(Modifier.height(8.dp))
+            SubscribeButton(subscribed) { AppGraph.toggleSubscribe(Sub(item.url, item.name, item.avatar)) }
         }
     }
 }
 
-/** Morphs from a pill to a softer square when subscribed. */
+/** YouTube-style pill: inverse colours, then a softer tonal shape once subscribed. */
 @Composable
 fun SubscribeButton(subscribed: Boolean, onClick: () -> Unit) {
     val corner by animateDpAsState(
-        if (subscribed) 14.dp else 24.dp,
+        if (subscribed) 14.dp else 20.dp,
         MaterialTheme.motionScheme.fastSpatialSpec(),
         label = "corner",
     )
     val container by animateColorAsState(
-        if (subscribed) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primary,
+        if (subscribed) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.inverseSurface,
         label = "container",
     )
     val contentColor by animateColorAsState(
-        if (subscribed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
+        if (subscribed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.inverseOnSurface,
         label = "content",
     )
+    val source = remember { MutableInteractionSource() }
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(corner),
         colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = contentColor),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        interactionSource = source,
+        modifier = Modifier.height(36.dp).pressScale(source, 0.92f),
     ) {
         AnimatedContent(
             targetState = subscribed,
@@ -330,12 +489,7 @@ fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifi
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(
-            Icons.Rounded.ErrorOutline,
-            null,
-            Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.error,
-        )
+        Icon(Icons.Rounded.ErrorOutline, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.error)
         Text(
             message,
             style = MaterialTheme.typography.bodyMedium,
@@ -348,7 +502,7 @@ fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifi
 }
 
 @Composable
-fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
+fun EmptyState(icon: ImageVector, title: String, body: String, action: (@Composable () -> Unit)? = null) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 64.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -358,11 +512,11 @@ fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Str
             Icon(icon, null, Modifier.padding(20.dp).size(40.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
-        Text(
-            body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (action != null) {
+            Spacer(Modifier.height(8.dp))
+            action()
+        }
     }
 }
 
@@ -376,25 +530,18 @@ fun SkeletonCards(count: Int = 3) {
         animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
         label = "alpha",
     )
+    val c1 = MaterialTheme.colorScheme.surfaceContainerHighest
+    val c2 = MaterialTheme.colorScheme.surfaceContainerHigh
     Column(Modifier.alpha(alpha)) {
         repeat(count) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Box(
-                    Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                )
-                Row(Modifier.padding(top = 10.dp)) {
-                    Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+            Column(Modifier.padding(bottom = 16.dp)) {
+                Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(c1))
+                Row(Modifier.padding(start = 12.dp, top = 12.dp)) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(c1))
                     Column(Modifier.padding(start = 12.dp)) {
-                        Box(
-                            Modifier.fillMaxWidth(0.85f).height(14.dp).clip(RoundedCornerShape(7.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                        )
+                        Box(Modifier.fillMaxWidth(0.85f).height(14.dp).clip(RoundedCornerShape(7.dp)).background(c1))
                         Spacer(Modifier.height(8.dp))
-                        Box(
-                            Modifier.fillMaxWidth(0.5f).height(12.dp).clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                        )
+                        Box(Modifier.fillMaxWidth(0.5f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(c2))
                     }
                 }
             }

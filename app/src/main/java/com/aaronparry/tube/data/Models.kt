@@ -24,6 +24,8 @@ data class VideoItem(
     val uploadedEpoch: Long? = null,
     val isLive: Boolean = false,
     val isShort: Boolean = false,
+    /** Ready-made "1.2M views" text from YouTube's own API, when we have it. */
+    val viewsText: String? = null,
 )
 
 @Serializable
@@ -114,6 +116,32 @@ fun formatDuration(totalSec: Long): String {
 
 fun VideoItem.subtitle(): String = listOfNotNull(
     channelName.takeIf { it.isNotBlank() },
-    if (isLive) "Live" else views.takeIf { it >= 0 }?.let { "${formatCount(it)} views" },
+    viewsText?.takeIf { it.isNotBlank() }
+        ?: if (isLive) "Live" else views.takeIf { it >= 0 }?.let { "${formatCount(it)} views" },
     uploaded?.takeIf { it.isNotBlank() },
 ).joinToString(" · ")
+
+private val channelIdRegex = Regex("""/channel/(UC[\w-]{22})""")
+
+fun channelIdOf(url: String?): String? = url?.let { channelIdRegex.find(it)?.groupValues?.get(1) }
+
+fun channelUrlOf(id: String) = "https://www.youtube.com/channel/$id"
+
+/** "12:34" or "1:02:03" to seconds. */
+fun parseDuration(text: String?): Long {
+    if (text.isNullOrBlank()) return -1
+    val parts = text.trim().split(":").mapNotNull { it.trim().toLongOrNull() }
+    if (parts.isEmpty()) return -1
+    return parts.fold(0L) { acc, n -> acc * 60 + n }
+}
+
+data class Comment(
+    val author: String,
+    val avatar: String?,
+    val html: String,
+    val likes: Int,
+    val date: String?,
+    val replies: Int,
+    val pinned: Boolean,
+    val hearted: Boolean,
+)
