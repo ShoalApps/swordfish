@@ -121,7 +121,9 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
     }
 
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val bottomExtra = (if (showBar) 0.dp else navInset) + (if (vm.sheetVisible) 76.dp else 0.dp)
+    // Like the official app, the mini player steps aside while you're in Shorts.
+    val miniHidden = route == "shorts" || route == "login"
+    val bottomExtra = (if (showBar) 0.dp else navInset) + (if (vm.sheetVisible && !miniHidden) 76.dp else 0.dp)
 
     val openVideo: (VideoItem) -> Unit = { vm.open(it) }
     val openChannel: (String) -> Unit = { url ->
@@ -140,7 +142,7 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
                 ) {
                     NavigationBar(
                         modifier = Modifier.graphicsLayer {
-                            translationY = if (vm.sheetVisible) size.height * vm.expand.value else 0f
+                            translationY = if (vm.sheetVisible && !miniHidden) size.height * vm.expand.value else 0f
                         },
                     ) {
                         visibleTabs.forEach { tab ->
@@ -184,7 +186,11 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
                             onChannel = openChannel,
                             onSearch = { nav.navigate("search") },
                             onNotifications = { goTab("subs") },
-                            onShorts = { goTab("shorts") },
+                            onShorts = { short ->
+                                com.aaronateataco.materialtube.ui.screens.ShortsLaunch.start = short
+                                vm.collapse()
+                                goTab("shorts")
+                            },
                         )
                     }
                     composable("shorts") {
@@ -241,7 +247,7 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean) {
             }
         }
 
-        if (vm.sheetVisible && !inPip) {
+        if (vm.sheetVisible && !inPip && !miniHidden) {
             PlayerSheet(vm, bottomBarVisible = showBar, onChannel = openChannel)
         }
 

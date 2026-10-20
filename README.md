@@ -1,4 +1,4 @@
-# Tube
+# MaterialTube
 
 A Material 3 Expressive YouTube client for Android.
 
@@ -10,7 +10,9 @@ A Material 3 Expressive YouTube client for Android.
 ## Getting the APK
 
 Every push to `main` builds a new APK with GitHub Actions.
-Open the **Releases** page on your phone and install `Tube.apk` from the newest build.
+Open the **Releases** page on your phone and install `MaterialTube.apk` from the newest build.
+
+Every build is also run on an Android emulator; screenshots and logs land on the `ci-shots` branch.
 
 ## Roadmap
 
@@ -20,6 +22,6 @@ Open the **Releases** page on your phone and install `Tube.apk` from the newest 
 
 ## Licence
 
-Tube is under the **Floodgate License**: view-only, all rights reserved,
+MaterialTube is under the **Floodgate License**: view-only, all rights reserved,
 until the author opens the floodgate. From then on it becomes GPL-3.0-or-later.
 See [LICENSE](LICENSE).

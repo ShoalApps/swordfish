@@ -241,7 +241,7 @@ fun HomeScreen(
     onChannel: (String) -> Unit,
     onSearch: () -> Unit,
     onNotifications: () -> Unit,
-    onShorts: () -> Unit,
+    onShorts: (VideoItem) -> Unit,
     vm: HomeViewModel = viewModel(),
 ) {
     val cookie by AppGraph.store.cookie.collectAsState()
@@ -365,7 +365,7 @@ private fun Chips(chips: List<String>, selected: String, onSelect: (String) -> U
 
 /** Horizontal row of tall Shorts thumbnails. */
 @Composable
-private fun ShortsShelf(shorts: List<VideoItem>, onOpen: () -> Unit) {
+private fun ShortsShelf(shorts: List<VideoItem>, onOpen: (VideoItem) -> Unit) {
     Column(Modifier.padding(bottom = 16.dp)) {
         Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.VideoLibrary, null, tint = MaterialTheme.colorScheme.primary)
@@ -379,7 +379,7 @@ private fun ShortsShelf(shorts: List<VideoItem>, onOpen: () -> Unit) {
                         .aspectRatio(9f / 16f)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                        .clickable(onClick = onOpen),
+                        .clickable { onOpen(s) },
                 ) {
                     AsyncImage(model = s.thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     Box(

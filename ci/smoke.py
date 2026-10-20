@@ -218,12 +218,12 @@ def main():
     if tap("Choose feed", wait=3):
         shot("feed_sheet")
         tap("Learning", exact=True, wait=2)
-        back(2)
+        tap_xy(W // 2, int(H * 0.12))  # tap above the sheet to close it
         time.sleep(15)
         shot("learning_feed")
         if tap("Choose feed", wait=3):
             tap("Recommended", exact=True, wait=2)
-            back(2)
+            tap_xy(W // 2, int(H * 0.12))
             time.sleep(12)
             shot("recommended_again")
 

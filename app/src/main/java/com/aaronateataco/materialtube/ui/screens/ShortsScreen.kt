@@ -100,6 +100,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.stream.StreamInfo
 
+/** A Short tapped elsewhere (e.g. the Home shelf) that the Shorts tab should open on. */
+object ShortsLaunch {
+    @Volatile var start: VideoItem? = null
+}
+
 /**
  * Shorts feed. Three players are kept warm (previous, current, next) and the two
  * Shorts above and below have their details and thumbnails fetched ahead of time.
@@ -124,6 +129,9 @@ class ShortsViewModel : ViewModel() {
         private set
     var limitReached by mutableStateOf<String?>(null)
         private set
+    /** Page the pager should jump to (set when opening a specific Short). */
+    var jumpTo by mutableStateOf<Int?>(null)
+
     /** Bumped whenever players move between pages, so the UI re-reads [playerFor]. */
     var slotVersion by mutableIntStateOf(0)
         private set
@@ -176,6 +184,11 @@ class ShortsViewModel : ViewModel() {
                 } else emptyList()
                 val more = if (fromAccount.size >= 20) emptyList() else AppGraph.repo.shorts(AppGraph.store.subs.value)
                 items = FeedFilter.apply((fromAccount + more).distinctBy { it.id })
+                val launch = ShortsLaunch.start
+                if (launch != null) {
+                    ShortsLaunch.start = null
+                    items = listOf(launch) + items.filter { it.id != launch.id }
+                }
                 if (items.isEmpty()) error = "Couldn't find any Shorts right now"
                 else onPage(0)
             } catch (e: CancellationException) {
@@ -266,9 +279,23 @@ class ShortsViewModel : ViewModel() {
         applyPlayState()
     }
 
+    /** Put a Short opened from elsewhere at the front and jump to it. */
+    private fun takeLaunch() {
+        val start = ShortsLaunch.start ?: return
+        if (items.isEmpty()) return
+        ShortsLaunch.start = null
+        val existing = items.indexOfFirst { it.id == start.id }
+        val target = if (existing >= 0) existing else {
+            items = items.take(current + 1) + start + items.drop(current + 1)
+            current + 1
+        }
+        jumpTo = target
+    }
+
     fun setActive(on: Boolean) {
         active = on
         if (on) {
+            takeLaunch()
             PlayerHolder.player.pause()
             viewedThisSession = mutableSetOf(current)
             checkDailyLimit()
@@ -325,6 +352,9 @@ fun ShortsScreen(onChannel: (String) -> Unit, onExit: () -> Unit, vm: ShortsView
             else -> {
                 val pager = rememberPagerState { vm.items.size }
                 LaunchedEffect(pager.settledPage, vm.items) { vm.onPage(pager.settledPage) }
+                LaunchedEffect(vm.jumpTo) {
+                    vm.jumpTo?.let { pager.scrollToPage(it); vm.jumpTo = null }
+                }
                 VerticalPager(
                     state = pager,
                     beyondViewportPageCount = 2,
@@ -335,6 +365,12 @@ fun ShortsScreen(onChannel: (String) -> Unit, onExit: () -> Unit, vm: ShortsView
                 }
             }
         }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), Color.Transparent))),
+        )
         Text(
             "Shorts",
             color = MaterialTheme.colorScheme.onSurface,
