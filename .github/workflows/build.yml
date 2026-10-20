@@ -24,7 +24,23 @@ jobs:
           gradle-version: 8.14.3
 
       - name: Build release APK
-        run: gradle assembleRelease --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleRelease --stacktrace 2>&1 | tee build.log
+
+      - name: Save error log to ci-log branch
+        if: failure()
+        run: |
+          grep -E "^e: |What went wrong|Could not (find|resolve|GET)|^> |error:" build.log | head -60 > errors.txt || true
+          head -45 errors.txt | while IFS= read -r line; do echo "::error::$line"; done
+          cp build.log ci-build.log
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan ci-log
+          git rm -rqf --cached .
+          git add -f ci-build.log errors.txt
+          git commit -qm "Build log ${{ github.run_number }}"
+          git push -f origin ci-log
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk Tube.apk
