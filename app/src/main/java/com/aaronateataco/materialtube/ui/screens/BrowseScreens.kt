@@ -114,7 +114,7 @@ class SearchViewModel : ViewModel() {
     private var suggestJob: Job? = null
     private var searchJob: Job? = null
 
-    fun setFilter(f: String) {
+    fun chooseFilter(f: String) {
         if (f == filter) return
         filter = f
         submitted?.let { submit(it) }
@@ -265,7 +265,7 @@ fun SearchScreen(
                             items(listOf("" to "All", "videos" to "Videos", "channels" to "Channels")) { (key, label) ->
                                 androidx.compose.material3.FilterChip(
                                     selected = vm.filter == key,
-                                    onClick = { vm.setFilter(key) },
+                                    onClick = { vm.chooseFilter(key) },
                                     label = { Text(label) },
                                     shape = RoundedCornerShape(8.dp),
                                 )
