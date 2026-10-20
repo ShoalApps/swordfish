@@ -636,8 +636,8 @@ private fun ShortPage(
                                 ) { Icon(Icons.Rounded.Add, "Follow", Modifier.size(14.dp), tint = Color.White) }
                             }
                         }
-                        PlainAction(Icons.Rounded.Favorite, likes?.let(::formatCount) ?: "0", if (liked == true) Color(0xFFFE2C55) else Color.White, 34.dp, onLike)
-                        PlainAction(Icons.Rounded.Comment, "Comments", Color.White, 32.dp, onComments)
+                        PlainAction(Icons.Rounded.Favorite, likes?.let(::formatCount) ?: "0", if (liked == true) Color(0xFFFE2C55) else Color.White, 34.dp, onClick = onLike)
+                        PlainAction(Icons.Rounded.Comment, "Comments", Color.White, 32.dp, onClick = onComments)
                         PlainAction(Icons.Rounded.BookmarkBorder, "Save", Color.White, 32.dp) {
                             if (AppGraph.store.signedIn) {
                                 AppGraph.scope.launch { runCatching { AppGraph.account.saveToWatchLater(item.id) } }
@@ -647,10 +647,10 @@ private fun ShortPage(
                         PlainAction(Icons.Rounded.Reply, "Share", Color.White, 32.dp, mirror = true, onClick = onShare)
                     }
                     "reels" -> {
-                        PlainAction(if (liked == true) Icons.Rounded.Favorite else Icons.Outlined.FavoriteBorder, likes?.let(::formatCount) ?: "", if (liked == true) Color(0xFFFF3040) else Color.White, 28.dp, onLike)
-                        PlainAction(Icons.Outlined.ChatBubbleOutline, "", Color.White, 28.dp, onComments)
-                        PlainAction(Icons.AutoMirrored.Rounded.Send, "", Color.White, 28.dp, onShare)
-                        PlainAction(Icons.Outlined.ThumbDown, dislikes?.let(::formatCount) ?: "", if (liked == false) MaterialTheme.colorScheme.primary else Color.White, 26.dp, onDislike)
+                        PlainAction(if (liked == true) Icons.Rounded.Favorite else Icons.Outlined.FavoriteBorder, likes?.let(::formatCount) ?: "", if (liked == true) Color(0xFFFF3040) else Color.White, 28.dp, onClick = onLike)
+                        PlainAction(Icons.Outlined.ChatBubbleOutline, "", Color.White, 28.dp, onClick = onComments)
+                        PlainAction(Icons.AutoMirrored.Rounded.Send, "", Color.White, 28.dp, onClick = onShare)
+                        PlainAction(Icons.Outlined.ThumbDown, dislikes?.let(::formatCount) ?: "", if (liked == false) MaterialTheme.colorScheme.primary else Color.White, 26.dp, onClick = onDislike)
                         PlainAction(Icons.Rounded.MoreVert, "", Color.White, 26.dp) { onShare() }
                     }
                     else -> {
