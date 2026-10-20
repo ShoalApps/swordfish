@@ -644,7 +644,7 @@ private fun ShortPage(
                                 toast(context, "Saved to Watch later")
                             } else toast(context, "Sign in to save")
                         }
-                        PlainAction(Icons.Rounded.Reply, "Share", Color.White, 32.dp, onShare, mirror = true)
+                        PlainAction(Icons.Rounded.Reply, "Share", Color.White, 32.dp, mirror = true, onClick = onShare)
                     }
                     "reels" -> {
                         PlainAction(if (liked == true) Icons.Rounded.Favorite else Icons.Outlined.FavoriteBorder, likes?.let(::formatCount) ?: "", if (liked == true) Color(0xFFFF3040) else Color.White, 28.dp, onLike)
@@ -696,7 +696,7 @@ private fun CircleAction(icon: ImageVector, label: String, active: Boolean, onCl
 
 /** TikTok / Reels style: bare icon with a shadow, count underneath. */
 @Composable
-private fun PlainAction(icon: ImageVector, label: String, tint: Color, size: Dp, onClick: () -> Unit, mirror: Boolean = false) {
+private fun PlainAction(icon: ImageVector, label: String, tint: Color, size: Dp, mirror: Boolean = false, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(4.dp),
