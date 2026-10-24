@@ -33,6 +33,9 @@ since YouTube blocks GitHub's servers. Run the full set on a home connection bef
 
 ## Licence
 
-MaterialTube is under the **Floodgate License**: view-only, all rights reserved,
-until the author opens the floodgate. From then on it becomes GPL-3.0-or-later.
-See [LICENSE](LICENSE).
+MaterialTube is free software under the **GNU General Public License v3.0 or later**
+(the same licence as NewPipeExtractor, which it is built on). You may use, study, share
+and change it, as long as anything you distribute that is based on it stays under the
+same licence with its source available. See [LICENSE](LICENSE).
+
+MaterialTube is not affiliated with, endorsed by or sponsored by Google or YouTube.

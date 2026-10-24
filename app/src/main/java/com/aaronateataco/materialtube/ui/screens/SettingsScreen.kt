@@ -432,9 +432,12 @@ fun AboutScreen(onBack: () -> Unit) {
         }
         item { Link("Source code", "github.com/$GITHUB_USER/tube") { openExternal(context, "https://github.com/$GITHUB_USER/tube") } }
         item { Section("Licence") }
+        item { Link("GNU GPL v3", "Read the full licence") { openExternal(context, "https://www.gnu.org/licenses/gpl-3.0.html") } }
         item {
             Text(
-                "MaterialTube is under the Floodgate License: view-only and all rights reserved until the author opens the floodgate, after which it becomes GPL-3.0-or-later.",
+                "MaterialTube is free software under the GNU General Public License, version 3 or later. " +
+                    "You can use, study, share and change it; anything built from it must stay under the same licence. " +
+                    "It comes with no warranty. MaterialTube is not affiliated with or endorsed by Google or YouTube.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),
