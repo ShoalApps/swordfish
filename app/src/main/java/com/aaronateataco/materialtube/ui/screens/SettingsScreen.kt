@@ -382,7 +382,7 @@ fun DeveloperSettingsScreen(onBack: () -> Unit) {
 
 // ---------------- About ----------------
 
-private const val GITHUB_USER = "aaronateataco"
+private const val GITHUB_USER = "calamityCocoa"
 
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
