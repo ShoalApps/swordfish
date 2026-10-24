@@ -331,7 +331,7 @@ fun AppLogo() {
             Icon(Icons.Rounded.PlayArrow, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
         }
         Text(
-            "Tintora",
+            "Tintloom",
             fontWeight = FontWeight.Black,
             letterSpacing = (-0.5).sp,
             modifier = Modifier.padding(start = 6.dp),
@@ -708,7 +708,7 @@ fun YouScreen(
                         modifier = Modifier.clickable(onClick = onSettings),
                     )
                     ListItem(
-                        headlineContent = { Text("About Tintora Video") },
+                        headlineContent = { Text("About Tintloom Video") },
                         leadingContent = { Icon(Icons.Outlined.Info, null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable(onClick = onAbout),

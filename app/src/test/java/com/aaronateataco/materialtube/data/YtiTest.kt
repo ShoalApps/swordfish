@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** InnerTube responses trimmed down to the parts Tintora Video reads. */
+/** InnerTube responses trimmed down to the parts Tintloom Video reads. */
 class YtiTest {
     private fun parse(s: String): JsonElement = Json.parseToJsonElement(s)
 

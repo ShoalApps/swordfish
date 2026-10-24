@@ -38,7 +38,7 @@ object NetworkInfo {
         val cause = generateSequence(e) { it.cause }.toList()
         val bot = isBotCheck(msg) || cause.any { isBotCheck(it.message) }
         return when {
-            bot && vpn -> "YouTube is blocking your VPN's address. Exclude Tintora Video from the VPN with split tunnelling, then try again."
+            bot && vpn -> "YouTube is blocking your VPN's address. Exclude Tintloom Video from the VPN with split tunnelling, then try again."
             bot -> "YouTube is asking this network to prove it isn't a bot. Try again, or switch between Wi-Fi and mobile data."
             offline || cause.any { it is UnknownHostException || it is ConnectException } ->
                 "You're offline. Check your connection and try again."

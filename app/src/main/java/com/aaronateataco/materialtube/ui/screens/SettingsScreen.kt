@@ -228,7 +228,7 @@ fun SettingsScreen(
 
         item { Section("More") }
         if (s.developerMode) item { Link("Developer settings", "Advanced tweaks, filters and debugging", onDeveloper) }
-        item { Link("About Tintora Video", "Version, credits and licence", onAbout) }
+        item { Link("About Tintloom Video", "Version, credits and licence", onAbout) }
     }
 
     choice?.let { c -> ChoiceDialog(c) { choice = null } }
@@ -397,7 +397,7 @@ fun AboutScreen(onBack: () -> Unit) {
         item {
             Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 MorphingAvatar("https://github.com/$GITHUB_USER.png?size=460", 200.dp)
-                Text("Tintora Video", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 20.dp))
+                Text("Tintloom Video", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 20.dp))
                 Text(
                     "Made by @$GITHUB_USER",
                     style = MaterialTheme.typography.titleMedium,
@@ -435,9 +435,9 @@ fun AboutScreen(onBack: () -> Unit) {
         item { Link("GNU GPL v3", "Read the full licence") { openExternal(context, "https://www.gnu.org/licenses/gpl-3.0.html") } }
         item {
             Text(
-                "Tintora Video is free software under the GNU General Public License, version 3 or later. " +
+                "Tintloom Video is free software under the GNU General Public License, version 3 or later. " +
                     "You can use, study, share and change it; anything built from it must stay under the same licence. " +
-                    "It comes with no warranty. Tintora Video is not affiliated with or endorsed by Google or YouTube.",
+                    "It comes with no warranty. Tintloom Video is not affiliated with or endorsed by Google or YouTube.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),

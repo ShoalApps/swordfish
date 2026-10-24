@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Walks through Tintora Video on an Android emulator, taking screenshots and
+Walks through Tintloom Video on an Android emulator, taking screenshots and
 collecting crashes, so the app can be checked without a phone.
-Usage: python3 ci/smoke.py Tintora Video.apk
+Usage: python3 ci/smoke.py Tintloom Video.apk
 """
 import os
 import re
@@ -145,7 +145,7 @@ def main():
     adb(f"shell am start -n {PKG}/.MainActivity")
     time.sleep(20)
     shot("home_light")
-    check_text("home", "Tintora", "Home", "Shorts", "Subscriptions", "You")
+    check_text("home", "Tintloom", "Home", "Shorts", "Subscriptions", "You")
 
     # 2. Scroll down and back up: thumbnails should still be there
     swipe_up(5)
@@ -222,7 +222,7 @@ def main():
     shot("you")
 
     # 7. About + unlock developer settings
-    if tap("About Tintora Video", wait=5):
+    if tap("About Tintloom Video", wait=5):
         shot("about")
         time.sleep(2)
         shot("about_morph_2s_later")

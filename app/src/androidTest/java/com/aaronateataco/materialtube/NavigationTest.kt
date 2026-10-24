@@ -25,7 +25,7 @@ class NavigationTest : TubeTest() {
         waitFor(hasText("Subscriptions") and !androidx.compose.ui.test.isSelectable())
 
         tab("You").performClick()
-        waitForText("About Tintora Video")
+        waitForText("About Tintloom Video")
         compose.onNodeWithText("Sign in").assertExists()
 
         tab("Shorts").performClick()
@@ -46,10 +46,10 @@ class NavigationTest : TubeTest() {
 
     @Test fun aboutPageOpens() {
         tab("You").performClick()
-        compose.onNodeWithText("About Tintora Video").performClick()
+        compose.onNodeWithText("About Tintloom Video").performClick()
         waitForDescription("Back")
         compose.onNodeWithContentDescription("Back").performClick()
-        waitForText("About Tintora Video")
+        waitForText("About Tintloom Video")
     }
 
     @Test fun survivesRotationOnEveryTab() {
