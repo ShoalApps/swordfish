@@ -22,25 +22,25 @@ import com.aaronateataco.materialtube.data.Settings
 
 // Fallback palette (used on Android 11 and below, or with dynamic colour off)
 private val Light = lightColorScheme(
-    primary = Color(0xFFB3261E),
+    primary = Color(0xFF00695F),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDAD5),
-    onPrimaryContainer = Color(0xFF410001),
-    secondary = Color(0xFF775651),
-    secondaryContainer = Color(0xFFFFDAD5),
-    tertiary = Color(0xFF705C2E),
-    tertiaryContainer = Color(0xFFFBDFA6),
+    primaryContainer = Color(0xFF9FF2E4),
+    onPrimaryContainer = Color(0xFF00201C),
+    secondary = Color(0xFF4A635F),
+    secondaryContainer = Color(0xFFCCE8E2),
+    tertiary = Color(0xFF456179),
+    tertiaryContainer = Color(0xFFCCE5FF),
 )
 
 private val Dark = darkColorScheme(
-    primary = Color(0xFFFFB4A9),
-    onPrimary = Color(0xFF690002),
-    primaryContainer = Color(0xFF930006),
-    onPrimaryContainer = Color(0xFFFFDAD5),
-    secondary = Color(0xFFE7BDB6),
-    secondaryContainer = Color(0xFF5D3F3B),
-    tertiary = Color(0xFFDEC48C),
-    tertiaryContainer = Color(0xFF574419),
+    primary = Color(0xFF83D5C8),
+    onPrimary = Color(0xFF003731),
+    primaryContainer = Color(0xFF005048),
+    onPrimaryContainer = Color(0xFF9FF2E4),
+    secondary = Color(0xFFB1CCC6),
+    secondaryContainer = Color(0xFF334B47),
+    tertiary = Color(0xFFADCAE5),
+    tertiaryContainer = Color(0xFF2D4960),
 )
 
 @Composable

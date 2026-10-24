@@ -25,7 +25,7 @@ fun CrashDialog(report: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("MaterialTube closed unexpectedly") },
+        title = { Text("Tintora Video closed unexpectedly") },
         text = {
             Column {
                 Text("Copy this report and send it to get the problem fixed.", style = MaterialTheme.typography.bodyMedium)
@@ -40,7 +40,7 @@ fun CrashDialog(report: String, onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cm.setPrimaryClip(ClipData.newPlainText("MaterialTube crash", report))
+                cm.setPrimaryClip(ClipData.newPlainText("Tintora Video crash", report))
                 toast(context, "Crash report copied")
                 onDismiss()
             }) { Text("Copy report") }

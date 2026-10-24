@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Fixed brand colours look the same in every launcher; themed-icon launchers use the monochrome layer. -->
-    <color name="icon_bg">#FFFFE4DE</color>
-    <color name="icon_shape">#FFD9362B</color>
-    <color name="icon_play">#FFFFFFFF</color>
+    <color name="icon_bg">#FFCCF2EC</color>
+    <color name="icon_shape">#FF00695F</color>
+    <color name="icon_play">#FFE6FFF9</color>
 </resources>

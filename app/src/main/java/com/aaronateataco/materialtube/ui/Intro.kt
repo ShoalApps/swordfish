@@ -93,7 +93,7 @@ fun IntroOverlay() {
                     Icon(Icons.Rounded.PlayArrow, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onPrimary)
                 }
                 Text(
-                    "MaterialTube",
+                    "Tintora Video",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier

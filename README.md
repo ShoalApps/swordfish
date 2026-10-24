@@ -1,6 +1,7 @@
-# MaterialTube
+# Tintora Video
 
-A Material 3 Expressive YouTube client for Android.
+A Material 3 Expressive client for watching YouTube videos on Android, part of the **Tintora** project:
+open-source apps that take on your wallpaper colours with Material You.
 
 - Jetpack Compose UI with dynamic colour, light/dark themes and spring animations
 - NewPipeExtractor backend: no Google account, no ads
@@ -10,7 +11,7 @@ A Material 3 Expressive YouTube client for Android.
 ## Getting the APK
 
 Every push to `main` builds a new APK with GitHub Actions.
-Open the **Releases** page on your phone and install `MaterialTube.apk` from the newest build.
+Open the **Releases** page on your phone and install `TintoraVideo.apk` from the newest build.
 
 Every build is also run on an Android emulator; screenshots and logs land on the `ci-shots` branch.
 
@@ -33,9 +34,9 @@ since YouTube blocks GitHub's servers. Run the full set on a home connection bef
 
 ## Licence
 
-MaterialTube is free software under the **GNU General Public License v3.0 or later**
+Tintora Video is free software under the **GNU General Public License v3.0 or later**
 (the same licence as NewPipeExtractor, which it is built on). You may use, study, share
 and change it, as long as anything you distribute that is based on it stays under the
 same licence with its source available. See [LICENSE](LICENSE).
 
-MaterialTube is not affiliated with, endorsed by or sponsored by Google or YouTube.
+Tintora Video is not affiliated with, endorsed by or sponsored by Google or YouTube.
