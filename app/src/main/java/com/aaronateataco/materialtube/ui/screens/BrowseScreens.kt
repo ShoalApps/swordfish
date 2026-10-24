@@ -82,6 +82,8 @@ import com.aaronateataco.materialtube.ui.components.SkeletonCards
 import com.aaronateataco.materialtube.ui.components.SubscribeButton
 import com.aaronateataco.materialtube.ui.components.VideoCard
 import com.aaronateataco.materialtube.ui.components.listPadding
+import com.aaronateataco.materialtube.ui.components.feedColumns
+import com.aaronateataco.materialtube.ui.components.videoGrid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -177,6 +179,7 @@ fun SearchScreen(
     vm: SearchViewModel = viewModel(),
 ) {
     val focus = remember { FocusRequester() }
+    val columns = feedColumns()
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) { if (vm.submitted == null) focus.requestFocus() }
 
@@ -276,17 +279,27 @@ fun SearchScreen(
                         vm.loading -> item { SkeletonCards() }
                         vm.error != null -> item { ErrorState(vm.error!!, { vm.submit() }) }
                         else -> {
-                            items(vm.results, key = { e ->
-                                when (e) {
-                                    is Entry.Video -> "v" + e.item.id
-                                    is Entry.Channel -> "c" + e.item.url
+                            // Channels get a full row; runs of videos between them fill the grid.
+                            var run = mutableListOf<VideoItem>()
+                            val flush = {
+                                val videos = run
+                                if (videos.isNotEmpty()) {
+                                    videoGrid(videos, columns, keyPrefix = "v") { v, _, mod ->
+                                        VideoCard(v, { onVideo(v) }, onChannel, mod, inGrid = columns > 1)
+                                    }
                                 }
-                            }) { e ->
+                                run = mutableListOf()
+                            }
+                            vm.results.forEach { e ->
                                 when (e) {
-                                    is Entry.Video -> VideoCard(e.item, { onVideo(e.item) }, onChannel, Modifier.animateItem())
-                                    is Entry.Channel -> ChannelRow(e.item) { onChannel(e.item.url) }
+                                    is Entry.Video -> run += e.item
+                                    is Entry.Channel -> {
+                                        flush()
+                                        item(key = "c" + e.item.url) { ChannelRow(e.item) { onChannel(e.item.url) } }
+                                    }
                                 }
                             }
+                            flush()
                             if (vm.loadingMore) item { CenterLoading() }
                         }
                     }
@@ -357,6 +370,7 @@ fun ChannelScreen(
     vm: ChannelViewModel = viewModel(key = url) { ChannelViewModel(url) },
 ) {
     val subs by AppGraph.store.subs.collectAsState()
+    val columns = feedColumns()
     val d = vm.details
     val listState = com.aaronateataco.materialtube.ui.components.rememberCachedListState()
     val nearEnd by remember {
@@ -435,8 +449,8 @@ fun ChannelScreen(
                 vm.loading -> item { SkeletonCards() }
                 vm.error != null -> item { ErrorState(vm.error!!, vm::load) }
                 else -> {
-                    items(vm.videos, key = { it.id }) { v ->
-                        VideoCard(v, { onVideo(v) }, null, Modifier.animateItem())
+                    videoGrid(vm.videos, columns) { v, _, mod ->
+                        VideoCard(v, { onVideo(v) }, null, mod, inGrid = columns > 1)
                     }
                     if (vm.loadingMore) item { CenterLoading() }
                 }

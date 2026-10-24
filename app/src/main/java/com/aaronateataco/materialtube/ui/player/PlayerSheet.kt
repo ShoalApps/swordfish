@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -208,6 +209,9 @@ fun PlayerSheet(
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val slowSpatial = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Tablets and desktop windows keep the watch page in landscape; only phones jump to full screen.
+    val largeScreen = LocalConfiguration.current.smallestScreenWidthDp >= 600
+    val wide = com.aaronateataco.materialtube.ui.components.isWideScreen()
 
     // Container transform: the tapped thumbnail grows into the player.
     val launch = remember { Animatable(1f) }
@@ -216,7 +220,7 @@ fun PlayerSheet(
     val back = remember { Animatable(0f) }
 
     LaunchedEffect(vm.sheetNonce) {
-        val origin = if (vm.sheetTarget == 1f && vm.expand.value < 0.5f) LaunchOrigin.take(vm.current?.id) else LaunchOrigin.take(null)
+        val origin = if (!wide && vm.sheetTarget == 1f && vm.expand.value < 0.5f) LaunchOrigin.take(vm.current?.id) else LaunchOrigin.take(null)
         if (origin != null) {
             launchFrom = origin
             vm.expand.snapTo(1f)
@@ -232,7 +236,7 @@ fun PlayerSheet(
     val p = vm.expand.value.coerceIn(0f, 1f)
     val ambient = AppGraph.store.settings.collectAsState().value.ambientMode &&
         MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val isFullscreen = vm.fullscreen || (landscape && p > 0.99f)
+    val isFullscreen = vm.fullscreen || (landscape && !largeScreen && p > 0.99f)
     FullscreenEffect(isFullscreen, vm)
 
     PredictiveBackHandler(enabled = p > 0.5f && !isFullscreen) { events ->
@@ -252,6 +256,11 @@ fun PlayerSheet(
             VideoSurface(vm, Modifier.fillMaxSize())
             PlayerControls(vm, fullscreen = true, onCollapse = { vm.fullscreen = false })
         }
+        return
+    }
+
+    if (wide) {
+        WideSheet(vm, bottomBarVisible, onChannel, back.value)
         return
     }
 
@@ -431,6 +440,131 @@ fun PlayerSheet(
                     .clip(RoundedCornerShape(lerp(12.dp, 0.dp, l.coerceIn(0f, 1f))))
                     .background(Color.Black),
             )
+        }
+    }
+}
+
+/**
+ * Tablet and desktop layout: a floating video card in the corner that opens into a two-pane
+ * watch page, video and details on the left and related videos down the right.
+ */
+@Composable
+private fun WideSheet(vm: PlayerViewModel, bottomBarVisible: Boolean, onChannel: (String) -> Unit, back: Float) {
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val p = vm.expand.value.coerceIn(0f, 1f)
+        val fullW = constraints.maxWidth.toFloat()
+        val fullH = constraints.maxHeight.toFloat()
+        val margin = with(density) { 16.dp.toPx() }
+        val statusTop = WindowInsets.statusBars.getTop(density).toFloat()
+        val navBottom = WindowInsets.navigationBars.getBottom(density).toFloat()
+        val barH = if (bottomBarVisible) with(density) { NavBarHeight.toPx() } + navBottom else navBottom
+        val cardW = with(density) { 400.dp.toPx() }.coerceAtMost(fullW * 0.45f)
+        val cardH = cardW * 9f / 16f
+        val miniLeft = fullW - cardW - margin
+        val miniTop = fullH - barH - cardH - margin
+        val travel = miniTop.coerceAtLeast(1f)
+        val dragState = rememberDraggableState { delta ->
+            scope.launch { vm.expand.snapTo((vm.expand.value - delta / travel).coerceIn(0f, 1f)) }
+        }
+        // The video column is the whole card when small, about two thirds of the window when open.
+        val pad = lerp(0.dp, 16.dp, p)
+        val padPx = with(density) { pad.toPx() }
+        val paneW = lerpF(cardW, fullW * 0.66f, p)
+        val videoH = (paneW - 2 * padPx) * 9f / 16f
+
+        Surface(
+            color = lerp(Color.Black, MaterialTheme.colorScheme.surface, p),
+            shape = RoundedCornerShape(maxOf(lerp(16.dp, 0.dp, p), lerp(0.dp, 32.dp, back))),
+            shadowElevation = lerp(8.dp, 0.dp, p),
+            modifier = Modifier
+                .offset { IntOffset(lerpF(miniLeft, 0f, p).roundToInt(), lerpF(miniTop, 0f, p).roundToInt()) }
+                .graphicsLayer {
+                    val s = 1f - 0.06f * back
+                    scaleX = s
+                    scaleY = s
+                }
+                .size(with(density) { lerpF(cardW, fullW, p).toDp() }, with(density) { lerpF(cardH, fullH, p).toDp() }),
+        ) {
+            Row(Modifier.fillMaxSize()) {
+                Column(Modifier.width(with(density) { paneW.toDp() }).fillMaxHeight()) {
+                    Spacer(Modifier.height(with(density) { (statusTop * p).toDp() } + pad))
+                    Box(
+                        Modifier
+                            .padding(horizontal = pad)
+                            .fillMaxWidth()
+                            .height(with(density) { videoH.toDp() })
+                            .clip(RoundedCornerShape(lerp(0.dp, 16.dp, p)))
+                            .background(Color.Black)
+                            .draggable(dragState, Orientation.Vertical, onDragStopped = { v ->
+                                val target = when {
+                                    v < -1200f -> 1f
+                                    v > 1200f -> 0f
+                                    vm.expand.value > 0.5f -> 1f
+                                    else -> 0f
+                                }
+                                vm.expand.animateTo(target, spatial, initialVelocity = -v / travel)
+                            })
+                            .clickable(enabled = p < 0.05f) { vm.showSheet(1f) },
+                    ) {
+                        VideoSurface(vm, Modifier.fillMaxSize())
+                        if (p > 0.6f) {
+                            PlayerControls(vm, fullscreen = false, onCollapse = { vm.collapse() }, modifier = Modifier.alpha(((p - 0.6f) / 0.4f).coerceIn(0f, 1f)))
+                        }
+                        if (p < 0.05f) MiniCardOverlay(vm)
+                    }
+                    if (p > 0.02f) WatchDetails(vm, onChannel, Modifier.weight(1f).alpha(p), includeRelated = false)
+                }
+                if (p > 0.02f) {
+                    RelatedPane(
+                        vm,
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .alpha(p)
+                            .padding(top = with(density) { (statusTop * p).toDp() } + pad),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Play/pause and close on the floating card, plus a thin progress line. */
+@Composable
+private fun MiniCardOverlay(vm: PlayerViewModel) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f))) {
+        IconButton(onClick = vm::close, modifier = Modifier.align(Alignment.TopEnd)) {
+            Icon(Icons.Rounded.Close, "Close", tint = Color.White)
+        }
+        FilledTonalIconButton(
+            onClick = vm::togglePlay,
+            shape = rememberMorphShape(MaterialShapes.Circle, MaterialShapes.Cookie6Sided, if (vm.isPlaying) 1f else 0f, 60f),
+            modifier = Modifier.align(Alignment.Center).size(52.dp),
+        ) {
+            Icon(if (vm.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (vm.isPlaying) "Pause" else "Play")
+        }
+        if (vm.durationMs > 0) {
+            val frac = (vm.positionMs.toFloat() / vm.durationMs).coerceIn(0f, 1f)
+            val primary = MaterialTheme.colorScheme.primary
+            Canvas(Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomStart)) {
+                drawRect(primary, size = Size(size.width * frac, size.height))
+            }
+        }
+    }
+}
+
+/** Related videos as compact rows, for the right-hand column of the wide watch page. */
+@Composable
+private fun RelatedPane(vm: PlayerViewModel, modifier: Modifier) {
+    val settings by AppGraph.store.settings.collectAsState()
+    if (settings.hideRelated) return
+    val navPad = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    LazyColumn(modifier, contentPadding = PaddingValues(end = 8.dp, bottom = 24.dp + navPad)) {
+        itemsIndexed(vm.related, key = { _, v -> "r" + v.id }) { i, v ->
+            com.aaronateataco.materialtube.ui.components.VideoRow(v, { vm.open(v) }, Modifier.animateItem().staggeredReveal(i))
         }
     }
 }
@@ -984,7 +1118,7 @@ private fun rememberHtml(html: String?, onLink: (String) -> Unit): AnnotatedStri
 }
 
 @Composable
-private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modifier: Modifier) {
+private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modifier: Modifier, includeRelated: Boolean = true) {
     val item = vm.current
     val info = vm.info
     val subs by AppGraph.store.subs.collectAsState()
@@ -1015,7 +1149,8 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
     }
 
     val settings by AppGraph.store.settings.collectAsState()
-    LazyColumn(modifier.fillMaxWidth(), state = com.aaronateataco.materialtube.ui.components.rememberCachedListState(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    val navPad = if (includeRelated) 0.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    LazyColumn(modifier.fillMaxWidth(), state = com.aaronateataco.materialtube.ui.components.rememberCachedListState(), contentPadding = PaddingValues(bottom = 24.dp + navPad)) {
         if (item != null) {
             item(key = "head") {
                 val branding = rememberBranding(item)
@@ -1114,7 +1249,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                 }
             }
         }
-        if (!settings.hideRelated) itemsIndexed(vm.related, key = { _, v -> "r" + v.id }) { i, v ->
+        if (includeRelated && !settings.hideRelated) itemsIndexed(vm.related, key = { _, v -> "r" + v.id }) { i, v ->
             VideoCard(
                 v,
                 onClick = { vm.open(v) },

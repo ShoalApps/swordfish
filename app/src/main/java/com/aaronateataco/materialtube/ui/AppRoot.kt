@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -171,10 +173,18 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
                     enter = slideInVertically { it } + fadeIn(),
                     exit = slideOutVertically { it } + fadeOut(),
                 ) {
+                    // On wide screens the tabs gather in the middle instead of spreading edge to edge.
+                    Box(
+                        Modifier
+                            .graphicsLayer {
+                                translationY = if (vm.sheetVisible && !miniHidden) size.height * vm.expand.value else 0f
+                            }
+                            .fillMaxWidth()
+                            .background(androidx.compose.material3.NavigationBarDefaults.containerColor),
+                        contentAlignment = androidx.compose.ui.Alignment.Center,
+                    ) {
                     NavigationBar(
-                        modifier = Modifier.graphicsLayer {
-                            translationY = if (vm.sheetVisible && !miniHidden) size.height * vm.expand.value else 0f
-                        },
+                        modifier = Modifier.widthIn(max = 640.dp),
                     ) {
                         visibleTabs.forEach { tab ->
                             val selected = route == tab.route
@@ -197,6 +207,7 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
                                 label = if (settings.navLabels) ({ Text(tab.label) }) else null,
                             )
                         }
+                    }
                     }
                 }
             },

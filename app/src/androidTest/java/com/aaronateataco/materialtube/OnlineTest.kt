@@ -25,12 +25,20 @@ class OnlineTest : TubeTest() {
 
     @Test fun homeFeedLoadsAndAVideoPlays() {
         waitForDescription("More", 30_000)
-        // Tap the first video's title area.
-        compose.onAllNodesWithContentDescription("More").onFirst().assertExists()
-        compose.onAllNodes(androidx.compose.ui.test.hasClickAction() and androidx.compose.ui.test.hasAnyDescendant(hasContentDescription("More")))
-            .onFirst().performClick()
-        waitForText("Comments", 20_000)
-        compose.waitUntil(45_000) { isPlaying() }
+        val cards = androidx.compose.ui.test.hasClickAction() and androidx.compose.ui.test.hasAnyDescendant(hasContentDescription("More"))
+        // Home is whatever YouTube is showing today; a video can be age-gated or blocked in this region.
+        // If the first one can't play, it must say why in words, and the next one must play.
+        for (attempt in 0..1) {
+            compose.onAllNodes(cards)[attempt].performClick()
+            waitForText("Comments", 20_000)
+            compose.waitUntil(45_000) { isPlaying() || !gone(hasText("Try again")) }
+            if (isPlaying()) break
+            assertTrue("no explanation shown", !gone(hasText("Try again")))
+            assertTrue("gave up after two videos", attempt == 0)
+            androidx.test.espresso.Espresso.pressBack()
+            compose.onNodeWithContentDescription("Close").performClick()
+            compose.waitForIdle()
+        }
         val start = position()
         compose.waitUntil(20_000) { position() > start + 1_500 }
     }

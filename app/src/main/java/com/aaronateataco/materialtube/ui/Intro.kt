@@ -95,6 +95,7 @@ fun IntroOverlay() {
                 Text(
                     "Tintora Video",
                     style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier
                         .padding(top = 24.dp)

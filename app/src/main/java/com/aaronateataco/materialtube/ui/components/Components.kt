@@ -111,6 +111,46 @@ fun rememberCachedListState(): androidx.compose.foundation.lazy.LazyListState =
         cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(ahead = 1600.dp, behind = 1600.dp),
     )
 
+/** Cards per row: one on phones, more as the window widens, like the official tablet layout. */
+@Composable
+fun feedColumns(): Int = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp / 340).coerceIn(1, 4)
+
+/** True on tablets, foldables and desktop windows, where pages get a two-pane layout. */
+@Composable
+fun isWideScreen(): Boolean = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 840
+
+/**
+ * Videos as full-width cards on phones, or a grid of [columns] on wider screens.
+ * [between] is called after each row (or card), e.g. to slot in a Shorts shelf.
+ */
+fun androidx.compose.foundation.lazy.LazyListScope.videoGrid(
+    videos: List<VideoItem>,
+    columns: Int,
+    keyPrefix: String = "",
+    between: androidx.compose.foundation.lazy.LazyListScope.(row: Int) -> Unit = {},
+    card: @Composable (video: VideoItem, index: Int, modifier: Modifier) -> Unit,
+) {
+    if (columns <= 1) {
+        videos.forEachIndexed { i, v ->
+            item(key = keyPrefix + v.id) { card(v, i, Modifier.animateItem().staggeredReveal(i)) }
+            between(i)
+        }
+        return
+    }
+    videos.chunked(columns).forEachIndexed { r, row ->
+        item(key = keyPrefix + "row-" + row.first().id) {
+            Row(
+                Modifier.animateItem().staggeredReveal(r).padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                row.forEachIndexed { c, v -> card(v, r * columns + c, Modifier.weight(1f)) }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        between(r)
+    }
+}
+
 /** Extra space lists need at the bottom (nav bar / mini player). */
 val LocalBottomPadding = staticCompositionLocalOf { 0.dp }
 
@@ -298,6 +338,7 @@ fun VideoCard(
     onClick: () -> Unit,
     onChannel: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    inGrid: Boolean = false,
 ) {
     val branding = rememberBranding(item)
     val source = remember { MutableInteractionSource() }
@@ -310,10 +351,15 @@ fun VideoCard(
                 bounds?.let { LaunchOrigin.set(item.id, it) }
                 onClick()
             }
-            .padding(bottom = 16.dp),
+            .padding(bottom = if (inGrid) 20.dp else 16.dp),
     ) {
-        Thumbnail(item, branding, Modifier.fillMaxWidth().onGloballyPositioned { bounds = it.boundsInRoot() })
-        Row(Modifier.padding(start = 12.dp, top = 12.dp)) {
+        Thumbnail(
+            item,
+            branding,
+            Modifier.fillMaxWidth().onGloballyPositioned { bounds = it.boundsInRoot() },
+            corner = if (inGrid) 12.dp else 0.dp,
+        )
+        Row(Modifier.padding(start = if (inGrid) 0.dp else 12.dp, top = 12.dp)) {
             Avatar(
                 url = item.channelAvatar,
                 size = 36.dp,

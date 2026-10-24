@@ -80,6 +80,8 @@ import com.aaronateataco.materialtube.ui.components.ShelfCard
 import com.aaronateataco.materialtube.ui.components.SkeletonCards
 import com.aaronateataco.materialtube.ui.components.VideoCard
 import com.aaronateataco.materialtube.ui.components.listPadding
+import com.aaronateataco.materialtube.ui.components.feedColumns
+import com.aaronateataco.materialtube.ui.components.videoGrid
 import com.aaronateataco.materialtube.ui.components.staggeredReveal
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -255,6 +257,7 @@ fun HomeScreen(
     val online by AppGraph.online.collectAsState()
     LaunchedEffect(online) { if (online && vm.error != null) vm.refresh() }
     var showFeedSheet by remember { mutableStateOf(false) }
+    val columns = feedColumns()
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberCachedListState()
     Scaffold(
@@ -293,16 +296,20 @@ fun HomeScreen(
                     }
                     else -> {
                         val gen = vm.generation
-                        vm.items.forEachIndexed { i, v ->
-                            item(key = "$gen-${v.id}") {
-                                if (settings.compactFeed) VideoRow(v, { onVideo(v) }, Modifier.animateItem().staggeredReveal(i))
-                                else VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = Modifier.animateItem().staggeredReveal(i))
-                            }
-                            // Shorts shelves sit between videos, like the official app.
-                            // One Shorts shelf, after the second video, like the official app.
-                            if (i == 1 && vm.shorts.isNotEmpty()) {
-                                item(key = "$gen-shorts") { ShortsShelf(vm.shorts, onShorts) }
-                            }
+                        val cols = if (settings.compactFeed) 1 else columns
+                        videoGrid(
+                            vm.items,
+                            cols,
+                            keyPrefix = "$gen-",
+                            // One Shorts shelf, after the second video (or the first row of a grid), like the official app.
+                            between = { row ->
+                                if (row == (if (cols > 1) 0 else 1) && vm.shorts.isNotEmpty()) {
+                                    item(key = "$gen-shorts") { ShortsShelf(vm.shorts, onShorts) }
+                                }
+                            },
+                        ) { v, _, mod ->
+                            if (settings.compactFeed) VideoRow(v, { onVideo(v) }, mod)
+                            else VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = mod, inGrid = cols > 1)
                         }
                     }
                 }
@@ -510,6 +517,7 @@ fun SubscriptionsScreen(
     val subs by AppGraph.store.subs.collectAsState()
     val cookie by AppGraph.store.cookie.collectAsState()
     LaunchedEffect(subs, cookie) { vm.loadIfNeeded() }
+    val columns = feedColumns()
     val online by AppGraph.online.collectAsState()
     LaunchedEffect(online) { if (online && vm.error != null) vm.load(false) }
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -570,8 +578,8 @@ fun SubscriptionsScreen(
                 else if (vm.items.isEmpty()) item(key = "empty") {
                     EmptyState(Icons.Rounded.Subscriptions, "No new videos", "Pull down to check again.")
                 }
-                else itemsIndexed(vm.items, key = { _, v -> v.id }) { i, v ->
-                    VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = Modifier.animateItem().staggeredReveal(i))
+                else videoGrid(vm.items, columns) { v, _, mod ->
+                    VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = mod, inGrid = columns > 1)
                 }
             }
         }
