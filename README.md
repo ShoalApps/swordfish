@@ -14,6 +14,17 @@ Open the **Releases** page on your phone and install `MaterialTube.apk` from the
 
 Every build is also run on an Android emulator; screenshots and logs land on the `ci-shots` branch.
 
+## Tests
+
+- `./gradlew testDebugUnitTest`: unit tests for formatting, captions, links, stream picking,
+  error messages and YouTube response parsing. Runs on the computer in a few seconds.
+- `./gradlew connectedDebugAndroidTest`: UI tests that drive the real app on a phone or emulator:
+  navigation, settings, links and shortcuts, the mini player, rotation, and (with a working
+  connection) feeds, playback, search, comments and Shorts.
+
+CI runs the unit tests on every push, and the UI tests that don't need YouTube itself on an emulator,
+since YouTube blocks GitHub's servers. Run the full set on a home connection before a release.
+
 ## Roadmap
 
 - v1: browse, search, channels, subscriptions, player, SponsorBlock, DeArrow

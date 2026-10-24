@@ -152,7 +152,19 @@ object ShortsLaunch {
  * loaded is dropped, so the preloaded ones behind it move up into its place.
  */
 class ShortsViewModel : ViewModel() {
-    private val pool = List(3) { ExoPlayer.Builder(AppGraph.app).build().apply { repeatMode = Player.REPEAT_MODE_ONE } }
+    private val pool = List(3) {
+        ExoPlayer.Builder(AppGraph.app)
+            .setAudioAttributes(
+                androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                    .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                true,
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+            .apply { repeatMode = Player.REPEAT_MODE_ONE }
+    }
     /** slot -> video id it's holding */
     private val slotId = arrayOfNulls<String>(3)
     private val slotJobs = arrayOfNulls<Job>(3)
@@ -250,7 +262,7 @@ class ShortsViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = NetworkInfo.friendlyError(e.message)
+                error = NetworkInfo.friendlyError(e)
             } finally {
                 loading = false
             }
@@ -443,6 +455,17 @@ fun ShortsScreen(onChannel: (String) -> Unit, onExit: () -> Unit, vm: ShortsView
     }
     val layout = AppGraph.store.settings.collectAsState().value.shortsLayout
     var commentsFor by remember { mutableStateOf<VideoItem?>(null) }
+
+    // White status bar icons over the video, whatever the app theme; put back on the way out.
+    val view = androidx.compose.ui.platform.LocalView.current
+    val overVideo = vm.limitReached == null && vm.error == null
+    DisposableEffect(overVideo) {
+        val window = (view.context as? android.app.Activity)?.window
+        val bars = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        val wasLight = bars?.isAppearanceLightStatusBars ?: false
+        if (overVideo) bars?.isAppearanceLightStatusBars = false
+        onDispose { bars?.isAppearanceLightStatusBars = wasLight }
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         val limit = vm.limitReached
@@ -678,8 +701,7 @@ private fun ShortPage(
                         PlainAction(Icons.Rounded.Comment, "Comments", Color.White, 32.dp, onClick = onComments)
                         PlainAction(Icons.Rounded.BookmarkBorder, "Save", Color.White, 32.dp) {
                             if (AppGraph.store.signedIn) {
-                                AppGraph.scope.launch { runCatching { AppGraph.account.saveToWatchLater(item.id) } }
-                                toast(context, "Saved to Watch later")
+                                AppGraph.saveToWatchLater(context, item.id)
                             } else toast(context, "Sign in to save")
                         }
                         PlainAction(Icons.Rounded.Reply, "Share", Color.White, 32.dp, mirror = true, onClick = onShare)
@@ -783,7 +805,7 @@ private fun rateShort(context: android.content.Context, id: String, liked: Boole
 private fun ShortComments(item: VideoItem, onDismiss: () -> Unit) {
     val state by produceState<Pair<List<Comment>, String?>?>(null, item.id) {
         value = runCatching { AppGraph.repo.comments("https://www.youtube.com/watch?v=${item.id}").items }
-            .fold({ it to null }, { emptyList<Comment>() to NetworkInfo.friendlyError(it.message) })
+            .fold({ it to null }, { emptyList<Comment>() to NetworkInfo.friendlyError(it) })
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
         Text("Comments", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))

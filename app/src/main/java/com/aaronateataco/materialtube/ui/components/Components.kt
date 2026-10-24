@@ -271,8 +271,7 @@ fun VideoMenu(item: VideoItem, onChannel: ((String) -> Unit)?) {
                     leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
                     onClick = {
                         open = false
-                        AppGraph.scope.launch { runCatching { AppGraph.account.saveToWatchLater(item.id) } }
-                        toast(context, "Saved to Watch later")
+                        AppGraph.saveToWatchLater(context, item.id)
                     },
                 )
             }

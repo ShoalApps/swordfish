@@ -147,7 +147,7 @@ class SearchViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                error = com.aaronateataco.materialtube.player.NetworkInfo.friendlyError(e)
             } finally {
                 loading = false
             }
@@ -327,7 +327,7 @@ class ChannelViewModel(private val url: String) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                error = com.aaronateataco.materialtube.player.NetworkInfo.friendlyError(e)
             } finally {
                 loading = false
             }

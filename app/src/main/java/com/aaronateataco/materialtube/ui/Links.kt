@@ -1,7 +1,6 @@
 package com.aaronateataco.materialtube.ui
 
 import android.content.Context
-import android.net.Uri
 import com.aaronateataco.materialtube.ui.components.openExternal
 
 /** Keeps YouTube links inside Tube; everything else goes to the browser. */
@@ -11,9 +10,11 @@ object Links {
 
     fun isVideo(url: String) = videoRegex.containsMatchIn(url)
 
-    /** Start time from t=90, t=90s or t=1h2m3s. */
+    private val timeParam = Regex("""[?&#](?:t|start)=([0-9hms]+)""")
+
+    /** Start time from t=90, t=90s, t=1h2m3s or start=90. */
     fun startSeconds(url: String): Long {
-        val t = runCatching { Uri.parse(url).getQueryParameter("t") }.getOrNull() ?: return 0
+        val t = timeParam.find(url)?.groupValues?.get(1) ?: return 0
         t.toLongOrNull()?.let { return it }
         var total = 0L
         Regex("""(\d+)([hms])""").findAll(t).forEach { m ->

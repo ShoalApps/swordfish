@@ -100,6 +100,22 @@ object AppGraph {
         syncAccount(replaceSubs = true)
     }
 
+    /** True while the phone has a working internet connection; screens use it to recover by themselves. */
+    val online = kotlinx.coroutines.flow.MutableStateFlow(true)
+
+    private fun watchNetwork() {
+        val cm = app.getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        online.value = !com.aaronateataco.materialtube.player.NetworkInfo.offline()
+        runCatching {
+            cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
+                    online.value = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                }
+                override fun onLost(network: android.net.Network) { online.value = false }
+            })
+        }
+    }
+
     /** Shorts fetched at startup so the Shorts tab opens instantly. */
     @Volatile var shortsCache: List<com.aaronateataco.materialtube.data.VideoItem>? = null
 
@@ -113,6 +129,17 @@ object AppGraph {
             val list = (fromAccount + more).distinctBy { it.id }
             shortsCache = list
             repo.prefetch(list.take(3).map { it.id })
+        }
+    }
+
+    /** Adds a video to Watch later and says whether it worked. */
+    fun saveToWatchLater(context: android.content.Context, videoId: String) {
+        val app = context.applicationContext
+        scope.launch {
+            val ok = runCatching { account.saveToWatchLater(videoId) }.isSuccess
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(app, if (ok) "Saved to Watch later" else "Couldn't save to Watch later", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -132,6 +159,7 @@ object AppGraph {
             ContentCountry(locale.country.ifBlank { "GB" }),
         )
         if (store.signedIn && store.account.value == null) syncAccount()
+        watchNetwork()
         warmUp()
     }
 }

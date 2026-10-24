@@ -213,7 +213,7 @@ class HomeViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: e.javaClass.simpleName
+                error = com.aaronateataco.materialtube.player.NetworkInfo.friendlyError(e)
             } finally {
                 loading = false
                 refreshing = false
@@ -251,6 +251,9 @@ fun HomeScreen(
     val pageId by AppGraph.store.pageId.collectAsState()
     val settings by AppGraph.store.settings.collectAsState()
     LaunchedEffect(cookie, pageId, settings.feedMode, settings.learningTopics, settings.shortsDisabled) { vm.reloadIfChanged() }
+    // Back online after a failed load: try again without making the user tap.
+    val online by AppGraph.online.collectAsState()
+    LaunchedEffect(online) { if (online && vm.error != null) vm.refresh() }
     var showFeedSheet by remember { mutableStateOf(false) }
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberCachedListState()
@@ -459,7 +462,10 @@ class SubsViewModel : ViewModel() {
         private set
     var refreshing by mutableStateOf(false)
         private set
+    var error by mutableStateOf<String?>(null)
+        private set
     private var loadedFor: Int = -1
+    private var job: Job? = null
 
     fun loadIfNeeded() {
         val key = AppGraph.store.subs.value.hashCode() * 31 + AppGraph.store.signedIn.hashCode()
@@ -470,13 +476,27 @@ class SubsViewModel : ViewModel() {
         val subs = AppGraph.store.subs.value
         loadedFor = subs.hashCode() * 31 + AppGraph.store.signedIn.hashCode()
         if (pull) refreshing = true else loading = true
-        viewModelScope.launch {
-            val fromAccount = if (AppGraph.store.signedIn) {
-                runCatching { AppGraph.account.subscriptionFeed() }.getOrDefault(emptyList())
-            } else emptyList()
-            items = FeedFilter.apply(fromAccount.ifEmpty { runCatching { AppGraph.repo.feed(subs) }.getOrDefault(emptyList()) })
-            loading = false
-            refreshing = false
+        error = null
+        job?.cancel()
+        job = viewModelScope.launch {
+            try {
+                val fromAccount = if (AppGraph.store.signedIn) {
+                    runCatching { AppGraph.account.subscriptionFeed() }.getOrDefault(emptyList())
+                } else emptyList()
+                val list = fromAccount.ifEmpty { if (subs.isEmpty()) emptyList() else AppGraph.repo.feed(subs) }
+                items = FeedFilter.apply(list)
+                // Every channel failing at once means the connection is the problem, not the channels.
+                if (items.isEmpty() && subs.isNotEmpty() && com.aaronateataco.materialtube.player.NetworkInfo.offline()) {
+                    error = com.aaronateataco.materialtube.player.NetworkInfo.friendlyError(java.net.UnknownHostException())
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = com.aaronateataco.materialtube.player.NetworkInfo.friendlyError(e)
+            } finally {
+                loading = false
+                refreshing = false
+            }
         }
     }
 }
@@ -490,6 +510,8 @@ fun SubscriptionsScreen(
     val subs by AppGraph.store.subs.collectAsState()
     val cookie by AppGraph.store.cookie.collectAsState()
     LaunchedEffect(subs, cookie) { vm.loadIfNeeded() }
+    val online by AppGraph.online.collectAsState()
+    LaunchedEffect(online) { if (online && vm.error != null) vm.load(false) }
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -544,6 +566,10 @@ fun SubscriptionsScreen(
                     }
                 }
                 if (vm.loading) item(key = "loading") { SkeletonCards() }
+                else if (vm.error != null) item(key = "error") { ErrorState(vm.error!!, { vm.load(false) }) }
+                else if (vm.items.isEmpty()) item(key = "empty") {
+                    EmptyState(Icons.Rounded.Subscriptions, "No new videos", "Pull down to check again.")
+                }
                 else itemsIndexed(vm.items, key = { _, v -> v.id }) { i, v ->
                     VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = Modifier.animateItem().staggeredReveal(i))
                 }
@@ -629,6 +655,7 @@ fun YouScreen(
                             "Sign in to see your feed, subscriptions, likes and Watch later.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                         )
                         Button(onClick = onSignIn) { Text("Sign in") }
@@ -731,7 +758,7 @@ class PlaylistViewModel(private val browseId: String) : ViewModel() {
         viewModelScope.launch {
             runCatching { AppGraph.account.playlist(browseId) }
                 .onSuccess { items = it }
-                .onFailure { error = it.message ?: "Couldn't load this playlist" }
+                .onFailure { error = com.aaronateataco.materialtube.player.NetworkInfo.friendlyError(it) }
             loading = false
         }
     }

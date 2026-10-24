@@ -129,6 +129,12 @@ data class Playable(
 )
 
 object StreamPicker {
+    private val resolutionHeight = Regex("""^(\d{3,4})p""")
+
+    /** Pixel height, read from the resolution label ("1080p60") when YouTube didn't send one. */
+    fun heightOf(v: VideoStream): Int =
+        v.height.takeIf { it > 0 } ?: resolutionHeight.find(v.getResolution().orEmpty())?.groupValues?.get(1)?.toInt() ?: 0
+
     fun pick(info: StreamInfo, maxHeight: Int): Playable {
         val isLive = info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM
         if (isLive && !info.hlsUrl.isNullOrBlank()) {
@@ -141,10 +147,10 @@ object StreamPicker {
         val muxedFallback = videos.isEmpty()
         if (muxedFallback) videos = info.videoStreams.filter { it.isUrl && progressive(it.deliveryMethod) }
 
-        val qualities = videos.map { it.height }.filter { it > 0 }.distinct().sortedDescending()
+        val qualities = videos.map(::heightOf).filter { it > 0 }.distinct().sortedDescending()
 
         val video = videos.sortedWith(
-            compareByDescending<VideoStream> { if (it.height <= maxHeight) it.height else -it.height }
+            compareByDescending<VideoStream> { val h = heightOf(it); if (h <= maxHeight) h else -h }
                 .thenByDescending { it.format == MediaFormat.MPEG_4 }
                 .thenByDescending { it.fps },
         ).firstOrNull()

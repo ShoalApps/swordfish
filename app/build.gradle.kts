@@ -16,6 +16,12 @@ android {
         targetSdk = 36
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        animationsDisabled = true
     }
 
     signingConfigs {
@@ -85,4 +91,17 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    // Unit tests (run on the computer)
+    testImplementation("junit:junit:4.13.2")
+
+    // Instrumented tests (run on a phone or emulator)
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.06.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

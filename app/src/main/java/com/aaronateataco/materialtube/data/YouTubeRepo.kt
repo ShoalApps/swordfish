@@ -73,6 +73,11 @@ class YouTubeRepo {
         info
     }
 
+    /** Drops cached details, e.g. after YouTube rejected one of its stream links. */
+    fun forget(url: String) {
+        synchronized(streamCache) { streamCache.remove(videoIdOf(url)) }
+    }
+
     /** Fetch details in the background; errors are ignored. */
     suspend fun prefetch(ids: List<String>) = coroutineScope {
         ids.map { id -> async { runCatching { stream("https://www.youtube.com/watch?v=$id") } } }.awaitAll()

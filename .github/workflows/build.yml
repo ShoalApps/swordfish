@@ -20,13 +20,18 @@ jobs:
           java-version: 17
 
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 9.6.0
 
-      - name: Build release APK
+      - name: Build release APK and run unit tests
         run: |
           set -o pipefail
-          gradle assembleRelease --stacktrace 2>&1 | tee build.log
+          ./gradlew assembleRelease testDebugUnitTest --stacktrace 2>&1 | tee build.log
+
+      - name: Upload unit test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest
 
       - name: Save error log to ci-log branch
         if: failure()
@@ -70,6 +75,16 @@ jobs:
         with:
           name: MaterialTube
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build instrumented tests
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -85,7 +100,17 @@ jobs:
           profile: pixel_7
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: python3 ci/smoke.py MaterialTube.apk
+          # UI tests first (the ones that need YouTube itself are skipped here), then the screenshot tour.
+          script: |
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notAnnotation=com.aaronateataco.materialtube.NetworkTest
+            python3 ci/smoke.py MaterialTube.apk
+
+      - name: Upload UI test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-report
+          path: app/build/reports/androidTests/connected
 
       - name: Save screenshots to ci-shots branch
         if: always()

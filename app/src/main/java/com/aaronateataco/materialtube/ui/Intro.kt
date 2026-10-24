@@ -56,7 +56,7 @@ fun IntroOverlay() {
         if (!shown) return@LaunchedEffect
         launch { enter.animateTo(1f, spatial) }
         launch { spin.animateTo(0f, spatial) }
-        launch {
+        val pulse = launch {
             while (true) {
                 shape.animateTo(1f, tween(700))
                 shape.animateTo(0f, tween(700))
@@ -66,6 +66,9 @@ fun IntroOverlay() {
         // Wait for the first feed, but never longer than a few seconds.
         withTimeoutOrNull(3500) { while (!StartupState.homeReady) delay(50) }
         shown = false
+        // Stop the morph once the intro has gone, or it keeps drawing frames for the whole session.
+        delay(400)
+        pulse.cancel()
     }
 
     AnimatedVisibility(

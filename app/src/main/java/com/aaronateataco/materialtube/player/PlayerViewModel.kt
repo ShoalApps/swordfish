@@ -131,16 +131,15 @@ class PlayerViewModel : ViewModel() {
             }
         }
         override fun onRenderedFirstFrame() { firstFrame = true }
-        override fun onPlayerError(e: PlaybackException) {
-            error = "Playback error: ${e.errorCodeName}"
-        }
+        override fun onPlayerError(e: PlaybackException) = onPlaybackFailed(e)
     }
 
     init {
         player.addListener(listener)
         viewModelScope.launch {
             while (true) {
-                tick()
+                // Nothing to track while no video is open.
+                if (sheetVisible) tick()
                 delay(200)
             }
         }
@@ -210,6 +209,8 @@ class PlayerViewModel : ViewModel() {
             if (startSec > 0) player.seekTo(startSec * 1000)
             return
         }
+        // Set before loading starts, so a cached video can't begin playing from 0.
+        pendingStartMs = startSec * 1000
         open(
             VideoItem(
                 url = "https://www.youtube.com/watch?v=$id",
@@ -219,12 +220,45 @@ class PlayerViewModel : ViewModel() {
                 thumbnail = "https://i.ytimg.com/vi/$id/hqdefault.jpg",
             ),
         )
-        pendingStartMs = startSec * 1000
     }
 
     private var pendingStartMs = 0L
 
     fun retry() { current?.let { load(it.url) } }
+
+    /** Whether the current video has already had its one silent reload after a playback error. */
+    private var recovered = false
+
+    /**
+     * Stream links expire after a few hours and YouTube sometimes rejects one mid-video.
+     * The first time that happens, fetch fresh links and carry on from the same spot.
+     */
+    private fun onPlaybackFailed(e: PlaybackException) {
+        val url = current?.url
+        val http = e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
+            e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+            e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
+            e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
+        if (!recovered && http && url != null) {
+            recovered = true
+            pendingStartMs = player.currentPosition
+            AppGraph.repo.forget(url)
+            load(url, keepRecovered = true)
+            return
+        }
+        error = when (e.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                if (NetworkInfo.offline()) "You're offline. Check your connection and try again."
+                else "The connection dropped while playing. Try again."
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "YouTube stopped sending this video. Try again."
+            PlaybackException.ERROR_CODE_DECODING_FAILED,
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
+                "This phone can't play this video's format. Try a lower quality."
+            else -> "Couldn't play this video (${e.errorCodeName}). Try again."
+        }
+    }
 
     private fun preferredQuality(): Int {
         val s = store.settings.value
@@ -237,8 +271,9 @@ class PlayerViewModel : ViewModel() {
         return if (unmetered) s.qualityWifi else s.qualityMobile
     }
 
-    private fun load(url: String) {
+    private fun load(url: String, keepRecovered: Boolean = false) {
         loadJob?.cancel()
+        if (!keepRecovered) recovered = false
         info = null; error = null; segments = emptyList(); votes = null; rating = Rating.NONE
         related = emptyList(); skipped = null; skippedIds.clear(); firstFrame = false
         comments = emptyList(); commentsNext = null; commentsError = null; replies.clear()
@@ -276,24 +311,15 @@ class PlayerViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.message.orEmpty()
-                error = when {
-                    isBotCheck(msg) && NetworkInfo.onVpn() ->
-                        "YouTube is blocking your VPN's address. In your VPN app, turn on split tunnelling and exclude MaterialTube (or pause the VPN), then tap Try again."
-                    isBotCheck(msg) ->
-                        "YouTube is asking this network to prove it isn't a bot. Try again, or switch between Wi-Fi and mobile data."
-                    msg.contains("age", true) && msg.contains("restrict", true) ->
-                        "This video is age-restricted."
-                    msg.isNotBlank() -> msg
-                    else -> e.javaClass.simpleName
-                }
+                pendingStartMs = 0
+                error = NetworkInfo.friendlyError(e)
             } finally {
                 loading = false
             }
         }
     }
 
-    private fun isBotCheck(msg: String) = msg.contains("not a bot", true) || msg.contains("LOGIN_REQUIRED")
+    private fun isBotCheck(msg: String) = NetworkInfo.isBotCheck(msg)
 
     /** The bot check is sometimes a one-off, so give it one quiet second try. */
     private suspend fun streamWithRetry(url: String): StreamInfo =
@@ -339,7 +365,7 @@ class PlayerViewModel : ViewModel() {
                     comments = (comments + it.items).distinctBy { c -> c.id.ifEmpty { c.author + c.html } }
                     commentsNext = it.next
                 }
-                .onFailure { commentsError = NetworkInfo.friendlyError(it.message) }
+                .onFailure { commentsError = NetworkInfo.friendlyError(it) }
             commentsLoading = false
         }
     }

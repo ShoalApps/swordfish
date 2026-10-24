@@ -688,7 +688,12 @@ fun PlayerControls(
         }
 
         if (vm.buffering && !visible) {
-            LoadingIndicator(Modifier.align(Alignment.Center).size(48.dp), color = Color.White)
+            Box(
+                Modifier.align(Alignment.Center).size(64.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                LoadingIndicator(Modifier.size(48.dp), color = Color.White)
+            }
         }
 
         // Swipe (brightness / volume) hint
@@ -1050,21 +1055,27 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Avatar(item.channelAvatar ?: info?.uploaderAvatars?.firstOrNull()?.url, 36.dp)
-                    Text(
-                        item.channelName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 12.dp).weight(1f, fill = false),
-                    )
-                    val subCount = info?.uploaderSubscriberCount ?: -1L
-                    Text(
-                        if (subCount >= 0) formatCount(subCount) else "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp).weight(1f),
-                    )
+                    // Name and count share the space left of the button; a long name ellipsizes first.
+                    Row(Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            item.channelName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 12.dp).weight(1f, fill = false),
+                        )
+                        val subCount = info?.uploaderSubscriberCount ?: -1L
+                        if (subCount >= 0) {
+                            Text(
+                                formatCount(subCount),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
                     if (channelUrl != null) {
                         SubscribeButton(subs.any { it.url == channelUrl }) {
                             AppGraph.toggleSubscribe(Sub(channelUrl, item.channelName, item.channelAvatar))
@@ -1084,8 +1095,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                     if (AppGraph.store.signedIn) {
                         item {
                             ActionChip(Icons.AutoMirrored.Rounded.PlaylistAdd, "Save") {
-                                AppGraph.scope.launch { runCatching { AppGraph.account.saveToWatchLater(item.id) } }
-                                toast(context, "Saved to Watch later")
+                                AppGraph.saveToWatchLater(context, item.id)
                             }
                         }
                     }
