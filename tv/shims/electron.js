@@ -1,16 +1,16 @@
-// Stands in for Electron inside Android's WebView: the "main process" is Tintloom Video, reached
-// through the TintloomTV bridge (TvBridge.kt). Only what VacuumTube's preload modules use.
+// Stands in for Electron inside Android's WebView: the "main process" is Swordfish Video, reached
+// through the SwordfishTV bridge (TvBridge.kt). Only what VacuumTube's preload modules use.
 const defaults = require('vt:config-defaults')
 
-const bridge = window.TintloomTV
+const bridge = window.SwordfishTV
 const listeners = {}
 
 function emit(channel, ...args) {
     for (const fn of listeners[channel] || []) {
-        try { fn({}, ...args) } catch (err) { console.error('[tintloom] listener failed', channel, err) }
+        try { fn({}, ...args) } catch (err) { console.error('[swordfish] listener failed', channel, err) }
     }
 }
-window.__tintloomEmit = emit // the app calls this for focus/blur
+window.__swordfishEmit = emit // the app calls this for focus/blur
 
 function readConfig() {
     let stored = {}
@@ -28,7 +28,7 @@ const about = () => ({
     latestVersion: '',
     platform: 'android',
     arch: 'arm64',
-    installationType: 'tintloom',
+    installationType: 'swordfish',
     canAutoUpdate: false,
     progress: null,
 })
@@ -43,9 +43,9 @@ const handlers = {
     'get-about-info': about,
     'check-for-updates': about,
     'install-update': () => {},
-    'open-update-download': () => open('https://github.com/Tintloom/video/releases/latest'),
+    'open-update-download': () => open('https://github.com/SwordfishApps/video/releases/latest'),
     'open-project-page': () => open('https://github.com/shy1132/VacuumTube'),
-    'open-release-page': () => open('https://github.com/Tintloom/video/releases/latest'),
+    'open-release-page': () => open('https://github.com/SwordfishApps/video/releases/latest'),
     'open-userstyles-folder': () => {},
     'request-microphone-permission': () => false,
 }

@@ -7,16 +7,16 @@ plugins {
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
 android {
-    namespace = "com.aaronateataco.materialtube"
+    namespace = "io.github.swordfishapps.video"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.aaronateataco.materialtube"
+        applicationId = "io.github.swordfishapps.video"
         minSdk = 26
         targetSdk = 36
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
-        resValue("string", "app_name", "Tintloom Video")
+        resValue("string", "app_name", "Swordfish Video")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -27,14 +27,14 @@ android {
 
     // The release key lives only in GitHub Actions secrets, never in the repo.
     // Builds without it (your own machine, forks) are signed with the normal debug key.
-    val releaseKey = System.getenv("TINTLOOM_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
+    val releaseKey = System.getenv("SWORDFISH_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
     signingConfigs {
         if (releaseKey != null) {
             create("release") {
                 storeFile = releaseKey
-                storePassword = System.getenv("TINTLOOM_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("TINTLOOM_KEY_ALIAS")
-                keyPassword = System.getenv("TINTLOOM_KEYSTORE_PASSWORD")
+                storePassword = System.getenv("SWORDFISH_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SWORDFISH_KEY_ALIAS")
+                keyPassword = System.getenv("SWORDFISH_KEYSTORE_PASSWORD")
             }
         }
     }
@@ -48,7 +48,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-dev"
-            resValue("string", "app_name", "Tintloom Dev")
+            resValue("string", "app_name", "Swordfish Video Dev")
         }
     }
 

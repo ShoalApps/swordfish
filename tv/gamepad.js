@@ -2,7 +2,7 @@
 // (TvActivity) and feeds their state here as one standard-layout gamepad. VacuumTube's controller
 // module then works unchanged: YouTube's TV app maps standard buttons (32768 + index) itself.
 const pad = {
-    id: 'Tintloom controller (STANDARD GAMEPAD)',
+    id: 'Swordfish controller (STANDARD GAMEPAD)',
     index: 0,
     connected: false,
     mapping: 'standard',
@@ -23,7 +23,7 @@ function publish() {
     }
 }
 
-window.__tintloomPad = (buttons, axes) => {
+window.__swordfishPad = (buttons, axes) => {
     pad.connected = true
     pad.timestamp = performance.now()
     for (let i = 0; i < values.length; i++) {
@@ -34,7 +34,7 @@ window.__tintloomPad = (buttons, axes) => {
     pad.axes = axes.slice(0, 4)
     publish()
 }
-window.__tintloomPadGone = () => { pad.connected = false }
+window.__swordfishPadGone = () => { pad.connected = false }
 
 navigator.getGamepads = () => {
     if (!pad.connected) return [null, null, null, null]
