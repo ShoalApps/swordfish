@@ -47,10 +47,8 @@ class IntentTest : TubeTest() {
     @Test fun closingPictureInPictureStopsEverything() {
         send(Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/dQw4w9WgXcQ")))
         waitForText("Share")
-        // What Android does when the floating window's X is pressed: the app stops, then leaves PiP.
-        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
-        compose.activityRule.scenario.onActivity { it.onPictureInPictureModeChanged(false, it.resources.configuration) }
-        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        // The floating window's X: Android stops the app, then takes it out of PiP.
+        compose.activityRule.scenario.onActivity { it.pipEnded(stillVisible = false) }
         compose.waitForIdle()
         val (state, items) = compose.runOnUiThread {
             com.aaronateataco.materialtube.player.PlayerHolder.player.playbackState to com.aaronateataco.materialtube.player.PlayerHolder.player.mediaItemCount
@@ -64,7 +62,7 @@ class IntentTest : TubeTest() {
         send(Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/dQw4w9WgXcQ")))
         waitForText("Share")
         // Tapping the floating window to return: the app is visible again when PiP ends.
-        compose.activityRule.scenario.onActivity { it.onPictureInPictureModeChanged(false, it.resources.configuration) }
+        compose.activityRule.scenario.onActivity { it.pipEnded(stillVisible = true) }
         compose.waitForIdle()
         assertTrue("the watch page should still be open", !gone(hasText("Share")))
     }

@@ -57,11 +57,7 @@ class MainActivity : ComponentActivity() {
 
         addOnPictureInPictureModeChangedListener { info ->
             inPip.value = info.isInPictureInPictureMode
-            // Leaving picture-in-picture while the app isn't on screen means the floating window was
-            // closed with its X (or swiped away): stop the video and autoplay, like the official app.
-            if (!info.isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-                playerVm.close()
-            }
+            if (!info.isInPictureInPictureMode) pipEnded(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
         }
 
         // Android 12+: slide into picture-in-picture automatically when leaving mid-video.
@@ -98,6 +94,15 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
+    }
+
+    /**
+     * Leaving picture-in-picture while the app isn't on screen means the floating window was closed
+     * with its X (or swiped away): stop the video and autoplay, like the official app. Expanding the
+     * window back into the app keeps playing.
+     */
+    internal fun pipEnded(stillVisible: Boolean) {
+        if (!stillVisible) playerVm.close()
     }
 
     override fun onUserLeaveHint() {
