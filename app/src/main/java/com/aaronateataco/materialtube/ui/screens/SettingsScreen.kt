@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -544,8 +546,9 @@ private fun SettingsScaffold(title: String, onBack: () -> Unit, content: android
             )
         },
     ) { pad ->
+        // A readable column on tablets and Chromebooks rather than rows stretched edge to edge.
         LazyColumn(
-            Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
+            Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()).wrapContentWidth().widthIn(max = 720.dp),
             contentPadding = listPadding(LocalBottomPadding.current),
             content = content,
         )
