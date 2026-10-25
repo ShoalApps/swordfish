@@ -8,3 +8,5 @@ captures/
 .kotlin/
 *.jks
 *.keystore
+tv/vacuumtube-src/
+tv/node_modules/

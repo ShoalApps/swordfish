@@ -9,4 +9,11 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <!-- TV mode: black, edge to edge, before YouTube's TV app draws. -->
+    <style name="Theme.Tube.Tv" parent="Theme.Tube">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="28">shortEdges</item>
+    </style>
 </resources>

@@ -227,6 +227,12 @@ fun SettingsScreen(
         }
 
         group("More") {
+            row { sh ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                Link("TV mode", "YouTube's TV interface for big screens, remotes and controllers", sh) {
+                    com.aaronateataco.materialtube.tv.TvActivity.open(context)
+                }
+            }
             if (s.developerMode) row { sh -> Link("Developer settings", "Advanced tweaks, filters and debugging", sh, onClick = onDeveloper) }
             row { sh -> Link("About Tintloom Video", "Version, credits and licence", sh, onClick = onAbout) }
         }
@@ -444,6 +450,12 @@ fun AboutScreen(onBack: () -> Unit) {
             }
         }
         group("Built with") {
+            // MIT licence: its notice must travel with the code (also at the top of assets/tv/vacuumtube.js).
+            row { sh ->
+                Link("VacuumTube", "TV mode's modules. MIT License, Copyright (c) 2025-2026 shy", sh) {
+                    openExternal(context, "https://github.com/shy1132/VacuumTube/blob/main/LICENSE")
+                }
+            }
             listOf(
                 "NewPipeExtractor" to "https://github.com/TeamNewPipe/NewPipeExtractor",
                 "SponsorBlock" to "https://sponsor.ajay.app",

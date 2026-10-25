@@ -1,0 +1,11 @@
+{
+  "name": "tintloom-video-tv",
+  "private": true,
+  "description": "Builds VacuumTube's preload modules for Tintloom Video's TV mode",
+  "license": "GPL-3.0-or-later",
+  "scripts": { "build": "node build.mjs" },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "events": "3.3.0"
+  }
+}

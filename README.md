@@ -7,6 +7,20 @@ open-source apps that take on your wallpaper colours with Material You.
 - NewPipeExtractor backend: no Google account, no ads
 - Media3 ExoPlayer with background play and picture-in-picture
 - SponsorBlock, DeArrow and Return YouTube Dislike built in
+- TV mode for big screens, remotes and Bluetooth/USB controllers (see below)
+
+## TV mode
+
+Settings → TV mode (or the app's tile on Android TV) opens YouTube's own TV interface full screen,
+with [VacuumTube](https://github.com/shy1132/VacuumTube)'s modules added: ad blocking, SponsorBlock,
+DeArrow, Return YouTube Dislike, controller support, speed and volume controls and its settings
+page. It works with a TV remote, a keyboard, touch, or any Bluetooth/USB controller.
+
+VacuumTube is an Electron app; its modules are vendored in [`tv/vacuumtube`](tv/vacuumtube) under
+their MIT licence and bundled for Android's WebView by [`tv/build.mjs`](tv/build.mjs), with small
+stand-ins for the Electron parts (`tv/shims`). Android's WebView has no Gamepad API, so the app reads
+controllers itself and hands them to the page as a standard gamepad (`tv/gamepad.js`). Casting to
+TV mode isn't available, since it needs network sockets a WebView can't open.
 
 ## Getting the APK
 
@@ -21,6 +35,7 @@ Every build is also run on an Android emulator; screenshots and logs land on the
 - Dependabot proposes library updates weekly; each is built and tested and only merged if it passes.
 - Every day a workflow follows the NewPipeExtractor version the NewPipe app ships, so YouTube fixes
   arrive without anyone building anything by hand.
+- Another follows VacuumTube's releases for TV mode (`tv/update-vacuumtube.sh` does the same by hand).
 
 ## Tests
 
@@ -45,5 +60,8 @@ Tintloom Video is free software under the **GNU General Public License v3.0 or l
 (the same licence as NewPipeExtractor, which it is built on). You may use, study, share
 and change it, as long as anything you distribute that is based on it stays under the
 same licence with its source available. See [LICENSE](LICENSE).
+
+TV mode includes VacuumTube, MIT License, Copyright (c) 2025-2026 shy; see
+[tv/vacuumtube/LICENSE](tv/vacuumtube/LICENSE).
 
 Tintloom Video is not affiliated with, endorsed by or sponsored by Google or YouTube.

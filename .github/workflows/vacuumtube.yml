@@ -1,0 +1,68 @@
+name: Follow VacuumTube
+
+# TV mode runs VacuumTube's modules (MIT) on YouTube's TV app. Every day this follows VacuumTube's
+# latest release (releases only, not every commit), rebuilds the bundle, tests and releases.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Find VacuumTube's latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh api repos/shy1132/VacuumTube/releases/latest --jq .tag_name)
+          ours=$(sed -n 's/.*"tag": *"\([^"]*\)".*/\1/p' tv/vacuumtube-version.json)
+          echo "VacuumTube's latest is $latest; we use $ours"
+          if [ -z "$latest" ] || [ "$latest" = "$ours" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$latest" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.release.outputs.changed == 'true'
+        with:
+          node-version: 22
+
+      - name: Vendor the release and rebuild the bundle
+        if: steps.release.outputs.changed == 'true'
+        run: |
+          cd tv
+          npm install --no-audit --no-fund
+          ./update-vacuumtube.sh "${{ steps.release.outputs.tag }}"
+
+      - uses: actions/setup-java@v6
+        if: steps.release.outputs.changed == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.release.outputs.changed == 'true'
+
+      - name: Build and run unit tests
+        if: steps.release.outputs.changed == 'true'
+        run: ./gradlew assembleDebug assembleDebugAndroidTest testDebugUnitTest --stacktrace
+
+      - name: Commit and publish
+        if: steps.release.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add tv app/src/main/assets/tv
+          git commit -m "Follow VacuumTube ${{ steps.release.outputs.tag }}
+
+          TV mode's modules, from VacuumTube's latest release."
+          git push
+          gh workflow run build.yml --ref main

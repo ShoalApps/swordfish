@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Subscriptions
 import androidx.compose.material.icons.rounded.ThumbUp
@@ -715,6 +716,14 @@ fun YouScreen(
                         leadingContent = { Icon(Icons.Rounded.Settings, null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable(onClick = onSettings),
+                    )
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    ListItem(
+                        headlineContent = { Text("TV mode") },
+                        supportingContent = { Text("For big screens, remotes and controllers") },
+                        leadingContent = { Icon(Icons.Rounded.Tv, null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { com.aaronateataco.materialtube.tv.TvActivity.open(context) },
                     )
                     ListItem(
                         headlineContent = { Text("About Tintloom Video") },
