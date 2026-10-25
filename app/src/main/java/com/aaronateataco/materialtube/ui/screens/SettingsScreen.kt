@@ -225,7 +225,18 @@ fun SettingsScreen(
         }
 
         group("Updates") {
-            row { sh -> Toggle("Check for updates", "Look for a new version on GitHub once a day", s.autoUpdate, sh) { v -> update { it.copy(autoUpdate = v) } } }
+            row { sh ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                if (com.aaronateataco.materialtube.TintloomManager.installed(context)) {
+                    Link("Managed by Tintloom Manager", "Updates are checked and installed by Tintloom Manager", sh) { com.aaronateataco.materialtube.TintloomManager.checkForUpdates(context) }
+                } else {
+                    Toggle("Check for updates", "Look for a new version on GitHub once a day", s.autoUpdate, sh) { v -> update { it.copy(autoUpdate = v) } }
+                }
+            }
+            row { sh ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                Link("Check for updates now", "Opens Tintloom Manager", sh) { com.aaronateataco.materialtube.TintloomManager.checkForUpdates(context) }
+            }
         }
 
         group("More") {
@@ -438,7 +449,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            row { sh -> Link("Check for updates", "Ask GitHub whether there's a newer version", sh) { AppGraph.checkForUpdate(force = true) } }
+            row { sh -> Link("Check for updates", "Opens Tintloom Manager", sh) { com.aaronateataco.materialtube.TintloomManager.checkForUpdates(context) } }
             row { sh -> Link("Source code", "github.com/Tintloom/video", sh) { openExternal(context, "https://github.com/Tintloom/video") } }
             row { sh -> Link("Website", "tintloom.github.io", sh) { openExternal(context, "https://tintloom.github.io") } }
         }
