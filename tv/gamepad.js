@@ -2,7 +2,7 @@
 // (TvActivity) and feeds their state here as one standard-layout gamepad. VacuumTube's controller
 // module then works unchanged: YouTube's TV app maps standard buttons (32768 + index) itself.
 const pad = {
-    id: 'Swordfish controller (STANDARD GAMEPAD)',
+    id: 'Shoal controller (STANDARD GAMEPAD)',
     index: 0,
     connected: false,
     mapping: 'standard',

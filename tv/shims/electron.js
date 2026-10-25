@@ -1,4 +1,4 @@
-// Stands in for Electron inside Android's WebView: the "main process" is Swordfish Video, reached
+// Stands in for Electron inside Android's WebView: the "main process" is Anglerfish, reached
 // through the SwordfishTV bridge (TvBridge.kt). Only what VacuumTube's preload modules use.
 const defaults = require('vt:config-defaults')
 
@@ -43,9 +43,9 @@ const handlers = {
     'get-about-info': about,
     'check-for-updates': about,
     'install-update': () => {},
-    'open-update-download': () => open('https://github.com/SwordfishApps/video/releases/latest'),
+    'open-update-download': () => open('https://github.com/ShoalApps/anglerfish/releases/latest'),
     'open-project-page': () => open('https://github.com/shy1132/VacuumTube'),
-    'open-release-page': () => open('https://github.com/SwordfishApps/video/releases/latest'),
+    'open-release-page': () => open('https://github.com/ShoalApps/anglerfish/releases/latest'),
     'open-userstyles-folder': () => {},
     'request-microphone-permission': () => false,
 }

@@ -1,1 +1,1 @@
-module.exports = { hostname: () => 'Swordfish', platform: () => 'android', release: () => '', arch: () => 'arm64', networkInterfaces: () => ({}), type: () => 'Linux' }
+module.exports = { hostname: () => 'Shoal', platform: () => 'android', release: () => '', arch: () => 'arm64', networkInterfaces: () => ({}), type: () => 'Linux' }

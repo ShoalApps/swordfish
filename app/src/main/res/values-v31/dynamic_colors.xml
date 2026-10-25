@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+: the window, launch screen and icon take their colours from the wallpaper. -->
+    <!-- Android 12+: the window and launch screen take their colours from the wallpaper; the icon keeps its fish's colours (themed icons use the one-colour version). -->
     <color name="window_bg">@android:color/system_neutral1_10</color>
-    <color name="icon_bg">@android:color/system_accent1_100</color>
-    <color name="icon_shape">@android:color/system_accent1_600</color>
-    <color name="icon_glyph">@android:color/system_accent1_10</color>
 </resources>

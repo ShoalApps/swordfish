@@ -1,6 +1,6 @@
-# Swordfish Video
+# Anglerfish
 
-A Material 3 Expressive client for watching YouTube videos on Android, part of the **Swordfish** project:
+A Material 3 Expressive client for watching YouTube videos on Android, part of the **Shoal** project:
 open-source apps that take on your wallpaper colours with Material You.
 
 - Jetpack Compose UI with dynamic colour, light/dark themes and spring animations
@@ -25,7 +25,7 @@ TV mode isn't available, since it needs network sockets a WebView can't open.
 ## Getting the APK
 
 Every push to `main` builds a new APK with GitHub Actions.
-Open the **Releases** page on your phone and install `SwordfishVideo.apk` from the newest build.
+Open the **Releases** page on your phone and install `Anglerfish.apk` from the newest build.
 
 Every build is also run on an Android emulator; screenshots and logs land on the `ci-shots` branch.
 
@@ -56,7 +56,7 @@ since YouTube blocks GitHub's servers. Run the full set on a home connection bef
 
 ## Licence
 
-Swordfish Video is free software under the **GNU General Public License v3.0 or later**
+Anglerfish is free software under the **GNU General Public License v3.0 or later**
 (the same licence as NewPipeExtractor, which it is built on). You may use, study, share
 and change it, as long as anything you distribute that is based on it stays under the
 same licence with its source available. See [LICENSE](LICENSE).
@@ -64,4 +64,4 @@ same licence with its source available. See [LICENSE](LICENSE).
 TV mode includes VacuumTube, MIT License, Copyright (c) 2025-2026 shy; see
 [tv/vacuumtube/LICENSE](tv/vacuumtube/LICENSE).
 
-Swordfish Video is not affiliated with, endorsed by or sponsored by Google or YouTube.
+Anglerfish is not affiliated with, endorsed by or sponsored by Google or YouTube.

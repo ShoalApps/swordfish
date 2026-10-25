@@ -8,8 +8,8 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:data="materialtube://search"
-            android:targetPackage="io.github.swordfishapps.video"
-            android:targetClass="io.github.swordfishapps.video.MainActivity" />
+            android:targetPackage="io.github.shoalapps.anglerfish"
+            android:targetClass="io.github.shoalapps.anglerfish.MainActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="subs"
@@ -19,8 +19,8 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:data="materialtube://subs"
-            android:targetPackage="io.github.swordfishapps.video"
-            android:targetClass="io.github.swordfishapps.video.MainActivity" />
+            android:targetPackage="io.github.shoalapps.anglerfish"
+            android:targetClass="io.github.shoalapps.anglerfish.MainActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="shorts"
@@ -30,7 +30,7 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:data="materialtube://shorts"
-            android:targetPackage="io.github.swordfishapps.video"
-            android:targetClass="io.github.swordfishapps.video.MainActivity" />
+            android:targetPackage="io.github.shoalapps.anglerfish"
+            android:targetClass="io.github.shoalapps.anglerfish.MainActivity" />
     </shortcut>
 </shortcuts>

@@ -23,17 +23,17 @@ jobs:
 
       - name: Unpack the release signing key
         env:
-          KEYSTORE_BASE64: ${{ secrets.SWORDFISH_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.SHOAL_KEYSTORE_BASE64 }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "SWORDFISH_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "SHOAL_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           fi
 
       - name: Build release APK and run unit tests
         env:
-          SWORDFISH_KEYSTORE_PASSWORD: ${{ secrets.SWORDFISH_KEYSTORE_PASSWORD }}
-          SWORDFISH_KEY_ALIAS: ${{ secrets.SWORDFISH_KEY_ALIAS }}
+          SHOAL_KEYSTORE_PASSWORD: ${{ secrets.SHOAL_KEYSTORE_PASSWORD }}
+          SHOAL_KEY_ALIAS: ${{ secrets.SHOAL_KEY_ALIAS }}
         run: |
           set -o pipefail
           ./gradlew assembleRelease testDebugUnitTest --stacktrace 2>&1 | tee build.log
@@ -60,20 +60,20 @@ jobs:
           git push -f origin ci-log
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk SwordfishVideo.apk
+        run: cp app/build/outputs/apk/release/app-release.apk Anglerfish.apk
 
       - uses: actions/upload-artifact@v7
         with:
-          name: SwordfishVideo
-          path: SwordfishVideo.apk
+          name: Anglerfish
+          path: Anglerfish.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: build-${{ github.run_number }}
-          name: Swordfish Video build ${{ github.run_number }}
-          body: Install SwordfishVideo.apk below. Swordfish Video is free software under the GPL-3.0 and is not affiliated with Google or YouTube.
-          files: SwordfishVideo.apk
+          name: Anglerfish build ${{ github.run_number }}
+          body: Install Anglerfish.apk below. Anglerfish is free software under the GPL-3.0 and is not affiliated with Google or YouTube.
+          files: Anglerfish.apk
           make_latest: true
 
   emulator-test:
@@ -85,7 +85,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: SwordfishVideo
+          name: Anglerfish
 
       - uses: actions/setup-java@v6
         with:
@@ -114,8 +114,8 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           # UI tests first (the ones that need YouTube itself are skipped here), then the screenshot tour.
           script: |
-            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notAnnotation=io.github.swordfishapps.video.NetworkTest
-            python3 ci/smoke.py SwordfishVideo.apk
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notAnnotation=io.github.shoalapps.anglerfish.NetworkTest
+            python3 ci/smoke.py Anglerfish.apk
 
       - name: Upload UI test report
         if: always()

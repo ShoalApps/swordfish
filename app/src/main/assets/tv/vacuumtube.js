@@ -1,4 +1,4 @@
-/* Swordfish Video TV mode. Includes VacuumTube 2.0.1 (https://github.com/shy1132/VacuumTube), MIT License, Copyright (c) 2025-2026 shy. */
+/* Anglerfish TV mode. Includes VacuumTube 2.0.1 (https://github.com/shy1132/VacuumTube), MIT License, Copyright (c) 2025-2026 shy. */
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __commonJS = (cb, mod) => function __require() {
@@ -22,7 +22,7 @@
   var require_gamepad = __commonJS({
     "gamepad.js"() {
       var pad = {
-        id: "Swordfish controller (STANDARD GAMEPAD)",
+        id: "Shoal controller (STANDARD GAMEPAD)",
         index: 0,
         connected: false,
         mapping: "standard",
@@ -373,9 +373,9 @@
         "check-for-updates": about,
         "install-update": () => {
         },
-        "open-update-download": () => open("https://github.com/SwordfishApps/video/releases/latest"),
+        "open-update-download": () => open("https://github.com/ShoalApps/anglerfish/releases/latest"),
         "open-project-page": () => open("https://github.com/shy1132/VacuumTube"),
-        "open-release-page": () => open("https://github.com/SwordfishApps/video/releases/latest"),
+        "open-release-page": () => open("https://github.com/ShoalApps/anglerfish/releases/latest"),
         "open-userstyles-folder": () => {
         },
         "request-microphone-permission": () => false
@@ -588,7 +588,7 @@
   // shims/os.js
   var require_os = __commonJS({
     "shims/os.js"(exports, module) {
-      module.exports = { hostname: () => "Swordfish", platform: () => "android", release: () => "", arch: () => "arm64", networkInterfaces: () => ({}), type: () => "Linux" };
+      module.exports = { hostname: () => "Shoal", platform: () => "android", release: () => "", arch: () => "arm64", networkInterfaces: () => ({}), type: () => "Linux" };
     }
   });
 
