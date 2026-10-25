@@ -131,7 +131,7 @@ fun SettingsScreen(
 
         item { Section("Appearance") }
         item {
-            Segmented("Theme", listOf("System", "Light", "Dark"), s.theme) { i -> update { it.copy(theme = i) } }
+            Segmented("Theme", listOf("Auto", "Light", "Dark"), s.theme) { i -> update { it.copy(theme = i) } }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             item { Toggle("Dynamic colour", "Match colours to your wallpaper", s.dynamicColor) { v -> update { it.copy(dynamicColor = v) } } }
