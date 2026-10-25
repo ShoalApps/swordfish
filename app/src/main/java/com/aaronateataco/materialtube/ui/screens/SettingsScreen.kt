@@ -41,6 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItemShapes
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -114,121 +116,116 @@ fun SettingsScreen(
     val update: ((Settings) -> Settings) -> Unit = { store.updateSettings(it) }
 
     SettingsScaffold("Settings", onBack) {
-        item { Section("Account") }
-        item {
+        group("Account") {
             if (signedIn) {
-                Row2(account?.name ?: "Signed in", account?.handle ?: "YouTube account") {
+                row { sh -> Row2(account?.name ?: "Signed in", account?.handle ?: "YouTube account", sh) {
                     TextButton(onClick = { AppGraph.signOut() }) { Text("Sign out") }
-                }
+                } }
+                row { sh -> Link("Switch channel", "Use a different channel on this Google account", sh, onClick = onSwitchChannel) }
+                row { sh -> Link("Import subscriptions from YouTube", "Adds any channels you follow on YouTube", sh) { AppGraph.syncAccount() } }
             } else {
-                Link("Sign in to YouTube", "Your feed, subscriptions, likes and Watch later", onSignIn)
+                row { sh -> Link("Sign in to YouTube", "Your feed, subscriptions, likes and Watch later", sh, onClick = onSignIn) }
             }
         }
-        if (signedIn) {
-            item { Link("Switch channel", "Use a different channel on this Google account", onSwitchChannel) }
-            item { Link("Import subscriptions from YouTube", "Adds any channels you follow on YouTube") { AppGraph.syncAccount() } }
-        }
 
-        item { Section("Appearance") }
-        item {
-            Segmented("Theme", listOf("Auto", "Light", "Dark"), s.theme) { i -> update { it.copy(theme = i) } }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            item { Toggle("Dynamic colour", "Match colours to your wallpaper", s.dynamicColor) { v -> update { it.copy(dynamicColor = v) } } }
-        }
-
-        item { Section("Feed") }
-        item {
-            Segmented("Home feed", listOf("Recommended", "Learning"), if (s.feedMode == "learning") 1 else 0) { i ->
-                update { it.copy(feedMode = if (i == 1) "learning" else "recommended") }
+        group("Appearance") {
+            row { sh -> Segmented("Theme", listOf("Auto", "Light", "Dark"), s.theme, sh) { i -> update { it.copy(theme = i) } } }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                row { sh -> Toggle("Dynamic colour", "Match colours to your wallpaper", s.dynamicColor, sh) { v -> update { it.copy(dynamicColor = v) } } }
             }
         }
-        if (s.feedMode == "learning") {
-            item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("Learning topics", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp))
-                    TopicPicker(s.learningTopics) { t -> update { it.copy(learningTopics = t) } }
+
+        group("Feed") {
+            row { sh ->
+                Segmented("Home feed", listOf("Recommended", "Learning"), if (s.feedMode == "learning") 1 else 0, sh) { i ->
+                    update { it.copy(feedMode = if (i == 1) "learning" else "recommended") }
+                }
+            }
+            if (s.feedMode == "learning") {
+                row { sh ->
+                    Tile(sh) {
+                        Text("Learning topics", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp))
+                        TopicPicker(s.learningTopics) { t -> update { it.copy(learningTopics = t) } }
+                    }
                 }
             }
         }
 
-        item { Section("Shorts") }
-        item {
-            Toggle("Turn off Shorts", "Hides the Shorts tab, shelves and Shorts in every feed", s.shortsDisabled) { v ->
-                update { it.copy(shortsDisabled = v) }
-            }
-        }
-        if (!s.shortsDisabled) {
-            item {
-                val keys = listOf("youtube", "tiktok", "reels")
-                Segmented("Shorts layout", listOf("YouTube", "TikTok", "Reels"), keys.indexOf(s.shortsLayout).coerceAtLeast(0)) { i ->
-                    update { it.copy(shortsLayout = keys[i]) }
+        group("Shorts") {
+            row { sh ->
+                Toggle("Turn off Shorts", "Hides the Shorts tab, shelves and Shorts in every feed", s.shortsDisabled, sh) { v ->
+                    update { it.copy(shortsDisabled = v) }
                 }
             }
-            item {
-                val opts = listOf(0, 5, 10, 20, 50).map { (if (it == 0) "No limit" else "$it Shorts") to it.toString() }
-                Link("Limit per visit", if (s.shortsSessionLimit == 0) "No limit" else "${s.shortsSessionLimit} Shorts, then a break screen") {
-                    choice = Choice("Shorts per visit", opts, s.shortsSessionLimit.toString()) { v -> update { it.copy(shortsSessionLimit = v.toInt()) } }
+            if (!s.shortsDisabled) {
+                row { sh ->
+                    val keys = listOf("youtube", "tiktok", "reels")
+                    Segmented("Shorts layout", listOf("YouTube", "TikTok", "Reels"), keys.indexOf(s.shortsLayout).coerceAtLeast(0), sh) { i ->
+                        update { it.copy(shortsLayout = keys[i]) }
+                    }
                 }
-            }
-            item {
-                val today = store.shortsMsToday() / 60_000
-                val opts = listOf(0, 10, 15, 30, 60, 90).map { (if (it == 0) "No limit" else "$it minutes") to it.toString() }
-                Link(
-                    "Daily time limit",
-                    (if (s.shortsDailyMinutes == 0) "No limit" else "${s.shortsDailyMinutes} minutes a day") + " · $today min today",
-                ) {
-                    choice = Choice("Shorts per day", opts, s.shortsDailyMinutes.toString()) { v -> update { it.copy(shortsDailyMinutes = v.toInt()) } }
+                row { sh ->
+                    val opts = listOf(0, 5, 10, 20, 50).map { (if (it == 0) "No limit" else "$it Shorts") to it.toString() }
+                    Link("Limit per visit", if (s.shortsSessionLimit == 0) "No limit" else "${s.shortsSessionLimit} Shorts, then a break screen", sh) {
+                        choice = Choice("Shorts per visit", opts, s.shortsSessionLimit.toString()) { v -> update { it.copy(shortsSessionLimit = v.toInt()) } }
+                    }
                 }
-            }
-        }
-
-        item { Section("Video quality preferences") }
-        item {
-            Link("On Wi-Fi", "${s.qualityWifi}p") {
-                choice = Choice("Quality on Wi-Fi", qualityChoices(), s.qualityWifi.toString()) { v -> update { it.copy(qualityWifi = v.toInt()) } }
-            }
-        }
-        item {
-            Link("On mobile networks", "${s.qualityMobile}p") {
-                choice = Choice("Quality on mobile networks", qualityChoices(), s.qualityMobile.toString()) { v -> update { it.copy(qualityMobile = v.toInt()) } }
-            }
-        }
-
-        item { Section("Playback") }
-        item { Toggle("Autoplay", "Play the next video when one ends", s.autoplayNext) { v -> update { it.copy(autoplayNext = v) } } }
-        item { Toggle("Background play", "Keep audio playing with the screen off or app closed", s.backgroundPlay) { v -> update { it.copy(backgroundPlay = v) } } }
-        item { Toggle("Picture-in-picture", "Shrink to a floating window when you leave the app", s.autoPip) { v -> update { it.copy(autoPip = v) } } }
-        item { Toggle("Ambient mode", "A soft glow of the video's colours around the player", s.ambientMode) { v -> update { it.copy(ambientMode = v) } } }
-
-        item { Section("SponsorBlock") }
-        item { Toggle("Skip segments", "Crowd-sourced skipping of sponsors and other filler", s.sponsorBlock) { v -> update { it.copy(sponsorBlock = v) } } }
-        if (s.sponsorBlock) {
-            SbCategories.all.forEach { cat ->
-                item(key = cat.key) {
-                    ListItem(
-                        headlineContent = { Text(cat.label) },
-                        leadingContent = { Box(Modifier.size(14.dp).clip(CircleShape).background(cat.color)) },
-                        trailingContent = {
-                            Switch(
-                                checked = cat.key in s.sbSkip,
-                                onCheckedChange = { on -> update { it.copy(sbSkip = if (on) it.sbSkip + cat.key else it.sbSkip - cat.key) } },
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
+                row { sh ->
+                    val today = store.shortsMsToday() / 60_000
+                    val opts = listOf(0, 10, 15, 30, 60, 90).map { (if (it == 0) "No limit" else "$it minutes") to it.toString() }
+                    Link(
+                        "Daily time limit",
+                        (if (s.shortsDailyMinutes == 0) "No limit" else "${s.shortsDailyMinutes} minutes a day") + " · $today min today",
+                        sh,
+                    ) {
+                        choice = Choice("Shorts per day", opts, s.shortsDailyMinutes.toString()) { v -> update { it.copy(shortsDailyMinutes = v.toInt()) } }
+                    }
                 }
             }
         }
 
-        item { Section("Community") }
-        item { Toggle("DeArrow", "Replace clickbait titles and thumbnails", s.deArrow) { v -> update { it.copy(deArrow = v) } } }
-        item { Toggle("Return YouTube Dislike", "Show dislike counts", s.ryd) { v -> update { it.copy(ryd = v) } } }
+        group("Video quality") {
+            row { sh ->
+                Link("On Wi-Fi", "${s.qualityWifi}p", sh) {
+                    choice = Choice("Quality on Wi-Fi", qualityChoices(), s.qualityWifi.toString()) { v -> update { it.copy(qualityWifi = v.toInt()) } }
+                }
+            }
+            row { sh ->
+                Link("On mobile networks", "${s.qualityMobile}p", sh) {
+                    choice = Choice("Quality on mobile networks", qualityChoices(), s.qualityMobile.toString()) { v -> update { it.copy(qualityMobile = v.toInt()) } }
+                }
+            }
+        }
 
-        item { Section("More") }
-        if (s.developerMode) item { Link("Developer settings", "Advanced tweaks, filters and debugging", onDeveloper) }
-        item { Link("About Tintloom Video", "Version, credits and licence", onAbout) }
+        group("Playback") {
+            row { sh -> Toggle("Autoplay", "Play the next video when one ends", s.autoplayNext, sh) { v -> update { it.copy(autoplayNext = v) } } }
+            row { sh -> Toggle("Background play", "Keep audio playing with the screen off or app closed", s.backgroundPlay, sh) { v -> update { it.copy(backgroundPlay = v) } } }
+            row { sh -> Toggle("Picture-in-picture", "Shrink to a floating window when you leave the app", s.autoPip, sh) { v -> update { it.copy(autoPip = v) } } }
+            row { sh -> Toggle("Ambient mode", "A soft glow of the video's colours around the player", s.ambientMode, sh) { v -> update { it.copy(ambientMode = v) } } }
+        }
+
+        group("SponsorBlock") {
+            row { sh -> Toggle("Skip segments", "Crowd-sourced skipping of sponsors and other filler", s.sponsorBlock, sh) { v -> update { it.copy(sponsorBlock = v) } } }
+            if (s.sponsorBlock) {
+                SbCategories.all.forEach { cat ->
+                    row { sh ->
+                        Toggle(cat.label, null, cat.key in s.sbSkip, sh, leading = {
+                            Box(Modifier.size(14.dp).clip(CircleShape).background(cat.color))
+                        }) { on -> update { it.copy(sbSkip = if (on) it.sbSkip + cat.key else it.sbSkip - cat.key) } }
+                    }
+                }
+            }
+        }
+
+        group("Community") {
+            row { sh -> Toggle("DeArrow", "Replace clickbait titles and thumbnails", s.deArrow, sh) { v -> update { it.copy(deArrow = v) } } }
+            row { sh -> Toggle("Return YouTube Dislike", "Show dislike counts", s.ryd, sh) { v -> update { it.copy(ryd = v) } } }
+        }
+
+        group("More") {
+            if (s.developerMode) row { sh -> Link("Developer settings", "Advanced tweaks, filters and debugging", sh, onClick = onDeveloper) }
+            row { sh -> Link("About Tintloom Video", "Version, credits and licence", sh, onClick = onAbout) }
+        }
     }
 
     choice?.let { c -> ChoiceDialog(c) { choice = null } }
@@ -265,73 +262,76 @@ fun DeveloperSettingsScreen(onBack: () -> Unit) {
             }
         }
 
-        item { Section("Feed filters") }
-        item { Toggle("Hide live streams", null, s.hideLive) { v -> update { it.copy(hideLive = v) } } }
-        item { Toggle("Hide watched videos", "Anything in your history", s.hideWatched) { v -> update { it.copy(hideWatched = v) } } }
-        item { Toggle("Hide Shorts shelf on Home", null, s.hideShortsShelf) { v -> update { it.copy(hideShortsShelf = v) } } }
-        item {
-            Link("Keyword filter", s.keywordFilter.ifBlank { "Hide videos whose title or channel contains these words" }) { keywordDialog = true }
+        group("Feed filters") {
+            row { sh -> Toggle("Hide live streams", null, s.hideLive, sh) { v -> update { it.copy(hideLive = v) } } }
+            row { sh -> Toggle("Hide watched videos", "Anything in your history", s.hideWatched, sh) { v -> update { it.copy(hideWatched = v) } } }
+            row { sh -> Toggle("Hide Shorts shelf on Home", null, s.hideShortsShelf, sh) { v -> update { it.copy(hideShortsShelf = v) } } }
+            row { sh -> Link("Keyword filter", s.keywordFilter.ifBlank { "Hide videos whose title or channel contains these words" }, sh) { keywordDialog = true } }
         }
 
-        item { Section("Player") }
-        item { Toggle("Remember playback speed", "Keep the last speed you picked", s.rememberSpeed) { v -> update { it.copy(rememberSpeed = v) } } }
-        item {
-            val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
-            Link("Default playback speed", "${s.defaultSpeed}x") {
-                choice = Choice("Default speed", speeds.map { (if (it == 1f) "Normal" else "${it}x") to it.toString() }, s.defaultSpeed.toString()) { v ->
-                    update { it.copy(defaultSpeed = v.toFloat()) }
+        group("Player") {
+            row { sh -> Toggle("Remember playback speed", "Keep the last speed you picked", s.rememberSpeed, sh) { v -> update { it.copy(rememberSpeed = v) } } }
+            row { sh ->
+                val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+                Link("Default playback speed", "${s.defaultSpeed}x", sh) {
+                    choice = Choice("Default speed", speeds.map { (if (it == 1f) "Normal" else "${it}x") to it.toString() }, s.defaultSpeed.toString()) { v ->
+                        update { it.copy(defaultSpeed = v.toFloat()) }
+                    }
                 }
             }
-        }
-        item {
-            Link("Double-tap seek", "${s.doubleTapSeconds} seconds") {
-                choice = Choice("Double-tap seek", listOf(5, 10, 15, 20, 30).map { "$it seconds" to it.toString() }, s.doubleTapSeconds.toString()) { v ->
-                    update { it.copy(doubleTapSeconds = v.toInt()) }
+            row { sh ->
+                Link("Double-tap seek", "${s.doubleTapSeconds} seconds", sh) {
+                    choice = Choice("Double-tap seek", listOf(5, 10, 15, 20, 30).map { "$it seconds" to it.toString() }, s.doubleTapSeconds.toString()) { v ->
+                        update { it.copy(doubleTapSeconds = v.toInt()) }
+                    }
                 }
             }
+            row { sh -> Toggle("Swipe controls", "Swipe up/down in full screen: left for brightness, right for volume", s.swipeGestures, sh) { v -> update { it.copy(swipeGestures = v) } } }
+            row { sh -> Toggle("Loop videos", "Replay instead of ending", s.loopVideo, sh) { v -> update { it.copy(loopVideo = v) } } }
         }
-        item { Toggle("Swipe controls", "Swipe up/down in full screen: left for brightness, right for volume", s.swipeGestures) { v -> update { it.copy(swipeGestures = v) } } }
-        item { Toggle("Loop videos", "Replay instead of ending", s.loopVideo) { v -> update { it.copy(loopVideo = v) } } }
 
-        item { Section("Layout") }
-        item { Toggle("Compact feed", "Small thumbnails in lists instead of full-width cards", s.compactFeed) { v -> update { it.copy(compactFeed = v) } } }
-        item { Toggle("Hide related videos", "No 'up next' list under the player", s.hideRelated) { v -> update { it.copy(hideRelated = v) } } }
-        item { Toggle("Hide comments", null, s.hideComments) { v -> update { it.copy(hideComments = v) } } }
-        item { Toggle("Navigation labels", "Show text under the bottom bar icons", s.navLabels) { v -> update { it.copy(navLabels = v) } } }
-        item { Toggle("Hide channel row in Subscriptions", null, s.hideSubsAvatars) { v -> update { it.copy(hideSubsAvatars = v) } } }
+        group("Layout") {
+            row { sh -> Toggle("Compact feed", "Small thumbnails in lists instead of full-width cards", s.compactFeed, sh) { v -> update { it.copy(compactFeed = v) } } }
+            row { sh -> Toggle("Hide related videos", "No 'up next' list under the player", s.hideRelated, sh) { v -> update { it.copy(hideRelated = v) } } }
+            row { sh -> Toggle("Hide comments", null, s.hideComments, sh) { v -> update { it.copy(hideComments = v) } } }
+            row { sh -> Toggle("Navigation labels", "Show text under the navigation bar icons", s.navLabels, sh) { v -> update { it.copy(navLabels = v) } } }
+            row { sh -> Toggle("Hide channel row in Subscriptions", null, s.hideSubsAvatars, sh) { v -> update { it.copy(hideSubsAvatars = v) } } }
+        }
 
-        item { Section("Sharing") }
-        item { Toggle("Clean share links", "Remove tracking (si=…) and use short youtu.be links", s.sanitizeShareLinks) { v -> update { it.copy(sanitizeShareLinks = v) } } }
+        group("Sharing") {
+            row { sh -> Toggle("Clean share links", "Remove tracking (si=…) and use short youtu.be links", s.sanitizeShareLinks, sh) { v -> update { it.copy(sanitizeShareLinks = v) } } }
+        }
 
-        item { Section("Debug") }
-        item {
-            Link("Channel switcher response", "What YouTube sent when listing your channels") {
-                debugText = "Loading…"
-                scope.launch {
-                    runCatching { AppGraph.account.channels() }
-                    debugText = AppGraph.account.lastChannelDebug.ifBlank { "Nothing yet. Sign in first." }
+        group("Debug") {
+            row { sh ->
+                Link("Channel switcher response", "What YouTube sent when listing your channels", sh) {
+                    debugText = "Loading…"
+                    scope.launch {
+                        runCatching { AppGraph.account.channels() }
+                        debugText = AppGraph.account.lastChannelDebug.ifBlank { "Nothing yet. Sign in first." }
+                    }
                 }
             }
-        }
-        item {
-            Link("Clear image cache", "Thumbnails will download again") {
-                val loader = SingletonImageLoader.get(context)
-                loader.memoryCache?.clear()
-                loader.diskCache?.clear()
-                toast(context, "Image cache cleared")
+            row { sh ->
+                Link("Clear image cache", "Thumbnails will download again", sh) {
+                    val loader = SingletonImageLoader.get(context)
+                    loader.memoryCache?.clear()
+                    loader.diskCache?.clear()
+                    toast(context, "Image cache cleared")
+                }
             }
-        }
-        item {
-            Link("Reset all settings", "Keeps your sign-in, subscriptions and history") {
-                store.updateSettings { Settings() }
-                toast(context, "Settings reset")
-                onBack()
+            row { sh ->
+                Link("Reset all settings", "Keeps your sign-in, subscriptions and history", sh) {
+                    store.updateSettings { Settings() }
+                    toast(context, "Settings reset")
+                    onBack()
+                }
             }
-        }
-        item {
-            Link("Turn off developer settings", null) {
-                update { it.copy(developerMode = false) }
-                onBack()
+            row { sh ->
+                Link("Turn off developer settings", null, sh) {
+                    update { it.copy(developerMode = false) }
+                    onBack()
+                }
             }
         }
     }
@@ -409,15 +409,12 @@ fun AboutScreen(onBack: () -> Unit) {
                 )
             }
         }
-        item {
-            ListItem(
-                headlineContent = { Text("Version") },
-                supportingContent = { Text(version) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable {
+        group("App", showTitle = false) {
+            row { sh ->
+                Link("Version", version, sh, trailingArrow = false) {
                     if (s.developerMode) {
                         toast(context, "Developer settings are already on")
-                        return@clickable
+                        return@Link
                     }
                     taps++
                     when {
@@ -427,33 +424,30 @@ fun AboutScreen(onBack: () -> Unit) {
                         }
                         taps >= 3 -> toast(context, "${7 - taps} more taps to unlock developer settings")
                     }
-                },
-            )
+                }
+            }
+            row { sh -> Link("Source code", "github.com/Tintloom/video", sh) { openExternal(context, "https://github.com/Tintloom/video") } }
+            row { sh -> Link("Website", "tintloom.github.io", sh) { openExternal(context, "https://tintloom.github.io") } }
         }
-        item { Link("Source code", "github.com/Tintloom/video") { openExternal(context, "https://github.com/Tintloom/video") } }
-        item { Section("Licence") }
-        item { Link("GNU GPL v3", "Read the full licence") { openExternal(context, "https://www.gnu.org/licenses/gpl-3.0.html") } }
-        item {
-            Text(
-                "Tintloom Video is free software under the GNU General Public License, version 3 or later. " +
-                    "You can use, study, share and change it; anything built from it must stay under the same licence. " +
-                    "It comes with no warranty. Tintloom Video is not affiliated with or endorsed by Google or YouTube.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+        group("Licence") {
+            row { sh ->
+                Link(
+                    "GNU GPL v3 or later",
+                    "Free software: use, study, share and change it; anything built from it stays under the same licence. No warranty.",
+                    sh,
+                ) { openExternal(context, "https://www.gnu.org/licenses/gpl-3.0.html") }
+            }
         }
-        item { Section("Built with") }
-        listOf(
-            "NewPipeExtractor" to "https://github.com/TeamNewPipe/NewPipeExtractor",
-            "SponsorBlock" to "https://sponsor.ajay.app",
-            "DeArrow" to "https://dearrow.ajay.app",
-            "Return YouTube Dislike" to "https://returnyoutubedislike.com",
-            "Jetpack Compose & Material 3" to "https://developer.android.com/compose",
-            "Media3 ExoPlayer" to "https://developer.android.com/media/media3",
-            "Coil" to "https://coil-kt.github.io/coil/",
-        ).forEach { (name, url) ->
-            item(key = name) { Link(name, null) { openExternal(context, url) } }
+        group("Built with") {
+            listOf(
+                "NewPipeExtractor" to "https://github.com/TeamNewPipe/NewPipeExtractor",
+                "SponsorBlock" to "https://sponsor.ajay.app",
+                "DeArrow" to "https://dearrow.ajay.app",
+                "Return YouTube Dislike" to "https://returnyoutubedislike.com",
+                "Jetpack Compose & Material 3" to "https://developer.android.com/compose",
+                "Media3 ExoPlayer" to "https://developer.android.com/media/media3",
+                "Coil" to "https://coil-kt.github.io/coil/",
+            ).forEach { (name, url) -> row { sh -> Link(name, null, sh) { openExternal(context, url) } } }
         }
         item {
             Text(
@@ -541,51 +535,100 @@ private fun SettingsScaffold(title: String, onBack: () -> Unit, content: android
     }
 }
 
+/** Rows of one settings group; each row is handed the Expressive shape for its place in the group. */
+private class GroupBuilder {
+    val rows = mutableListOf<@Composable (ListItemShapes) -> Unit>()
+    fun row(content: @Composable (ListItemShapes) -> Unit) { rows += content }
+}
+
+/**
+ * A titled group of Material 3 Expressive segmented list items: rounded tiles with small gaps,
+ * the outer corners rounder than the inner ones, morphing when pressed.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.group(title: String, showTitle: Boolean = true, build: GroupBuilder.() -> Unit) {
+    val rows = GroupBuilder().apply(build).rows
+    if (rows.isEmpty()) return
+    if (showTitle) item(key = "title-$title") { Section(title) }
+    rows.forEachIndexed { i, row ->
+        item(key = "$title-$i") {
+            Box(Modifier.padding(horizontal = 16.dp, vertical = ListItemDefaults.SegmentedGap / 2)) {
+                row(ListItemDefaults.segmentedShapes(i, rows.size))
+            }
+        }
+    }
+}
+
 @Composable
 private fun Section(title: String) {
     Text(
         title,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.titleSmallEmphasized,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 32.dp, top = 24.dp, bottom = 8.dp),
     )
 }
 
 @Composable
-private fun Toggle(title: String, body: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
+private fun Toggle(
+    title: String,
+    body: String?,
+    checked: Boolean,
+    shapes: ListItemShapes,
+    leading: (@Composable () -> Unit)? = null,
+    onChange: (Boolean) -> Unit,
+) {
+    SegmentedListItem(
+        checked = checked,
+        onCheckedChange = onChange,
+        shapes = shapes,
+        leadingContent = leading,
         supportingContent = body?.let { { Text(it) } },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable { onChange(!checked) },
-    )
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        colors = tileColors(),
+    ) { Text(title) }
 }
 
 @Composable
-private fun Link(title: String, body: String?, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
+private fun Link(title: String, body: String?, shapes: ListItemShapes, trailingArrow: Boolean = true, onClick: () -> Unit) {
+    SegmentedListItem(
+        onClick = onClick,
+        shapes = shapes,
         supportingContent = body?.let { { Text(it) } },
-        trailingContent = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable(onClick = onClick),
-    )
+        trailingContent = if (trailingArrow) ({ Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null) }) else null,
+        colors = tileColors(),
+    ) { Text(title) }
 }
 
 @Composable
-private fun Row2(title: String, body: String, trailing: @Composable () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
+private fun Row2(title: String, body: String, shapes: ListItemShapes, trailing: @Composable () -> Unit) {
+    SegmentedListItem(
+        shapes = shapes,
         supportingContent = { Text(body) },
         trailingContent = trailing,
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
+        colors = tileColors(),
+    ) { Text(title) }
+}
+
+/** Every tile sits on the same tonal container, whether its switch is on or off. */
+@Composable
+private fun tileColors() = ListItemDefaults.segmentedColors(
+    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    selectedContentColor = MaterialTheme.colorScheme.onSurface,
+    selectedSupportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
+/** Free-form content in a group tile. */
+@Composable
+private fun Tile(shapes: ListItemShapes, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Surface(shape = shapes.shape, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), content = content)
+    }
 }
 
 @Composable
-private fun Segmented(title: String, labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+private fun Segmented(title: String, labels: List<String>, selected: Int, shapes: ListItemShapes, onSelect: (Int) -> Unit) {
+    Tile(shapes) {
         Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp))
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             labels.forEachIndexed { i, label ->

@@ -382,7 +382,7 @@ private fun ShortsShelf(shorts: List<VideoItem>, onOpen: (VideoItem) -> Unit) {
     Column(Modifier.padding(bottom = 16.dp)) {
         Row(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.VideoLibrary, null, tint = MaterialTheme.colorScheme.primary)
-            Text("Shorts", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+            Text("Shorts", style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.padding(start = 8.dp))
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(shorts, key = { it.id }) { s ->
@@ -415,7 +415,7 @@ private fun FeedSheet(onDismiss: () -> Unit) {
     val s by AppGraph.store.settings.collectAsState()
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
-            Text("Your feed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Your feed", style = MaterialTheme.typography.titleLargeEmphasized)
             Spacer(Modifier.height(12.dp))
             val modes = listOf("recommended" to "Recommended", "learning" to "Learning")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -733,7 +733,7 @@ private fun SectionHeader(title: String, action: String?, onAction: () -> Unit) 
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 20.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.weight(1f))
         if (action != null) OutlinedButton(onClick = onAction) { Text(action) }
     }
 }

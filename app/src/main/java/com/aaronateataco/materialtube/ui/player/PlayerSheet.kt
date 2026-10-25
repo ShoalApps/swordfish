@@ -1166,8 +1166,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                 ) {
                     Text(
                         branding?.title ?: item.title,
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLargeEmphasized.copy(fontSize = 18.sp, lineHeight = 24.sp),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1267,74 +1266,59 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
     if (showComments) CommentsSheet(vm, onLink) { showComments = false }
 }
 
+/** Like and dislike as a Material 3 Expressive connected toggle-button group. */
 @Composable
 private fun LikePill(vm: PlayerViewModel) {
     val context = LocalContext.current
-    val info = vm.info
-    val likes = info?.likeCount?.takeIf { it >= 0 } ?: vm.votes?.likes
+    val likes = vm.info?.likeCount?.takeIf { it >= 0 } ?: vm.votes?.likes
     val dislikes = vm.votes?.dislikes
-    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.height(36.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight()) {
-            RateButton(
-                icon = if (vm.rating == Rating.LIKE) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
-                label = likes?.let(::formatCount).orEmpty(),
-                active = vm.rating == Rating.LIKE,
-            ) { if (!vm.rate(Rating.LIKE)) toast(context, "Sign in to save likes to YouTube") }
-            Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outlineVariant))
-            RateButton(
-                icon = if (vm.rating == Rating.DISLIKE) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDown,
-                label = dislikes?.let(::formatCount).orEmpty(),
-                active = vm.rating == Rating.DISLIKE,
-            ) { if (!vm.rate(Rating.DISLIKE)) toast(context, "Sign in to save dislikes to YouTube") }
-        }
+    Row(horizontalArrangement = Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween)) {
+        RateToggle(
+            checked = vm.rating == Rating.LIKE,
+            icon = if (vm.rating == Rating.LIKE) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
+            label = likes?.let(::formatCount).orEmpty(),
+            description = "Like",
+            shapes = androidx.compose.material3.ButtonGroupDefaults.connectedLeadingButtonShapes(),
+        ) { if (!vm.rate(Rating.LIKE)) toast(context, "Sign in to save likes to YouTube") }
+        RateToggle(
+            checked = vm.rating == Rating.DISLIKE,
+            icon = if (vm.rating == Rating.DISLIKE) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDown,
+            label = dislikes?.let(::formatCount).orEmpty(),
+            description = "Dislike",
+            shapes = androidx.compose.material3.ButtonGroupDefaults.connectedTrailingButtonShapes(),
+        ) { if (!vm.rate(Rating.DISLIKE)) toast(context, "Sign in to save dislikes to YouTube") }
     }
 }
 
-/** Thumb icon that pops when you tap it. */
+/** One half of the like/dislike group: the thumb pops when you tap it. */
 @Composable
-private fun RateButton(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit) {
+private fun RateToggle(
+    checked: Boolean,
+    icon: ImageVector,
+    label: String,
+    description: String,
+    shapes: androidx.compose.material3.ToggleButtonShapes,
+    onClick: () -> Unit,
+) {
     val pop = remember { Animatable(1f) }
-    val bloom = remember { Animatable(0f) }
-    LaunchedEffect(active) {
-        if (active) {
-            launch { bloom.snapTo(0f); bloom.animateTo(1f, tween(520)) }
-            pop.animateTo(1.4f, tween(110))
+    LaunchedEffect(checked) {
+        if (checked) {
+            pop.animateTo(1.35f, tween(110))
             pop.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 500f))
         }
     }
-    val burstColor = MaterialTheme.colorScheme.primary
-    val burstShape = remember { PolygonShape(MaterialShapes.SoftBurst) }
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(50))
-            .clickable(onClick = onClick)
-            .fillMaxHeight()
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    androidx.compose.material3.ToggleButton(
+        checked = checked,
+        onCheckedChange = { onClick() },
+        shapes = shapes,
+        colors = androidx.compose.material3.ToggleButtonDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        contentPadding = PaddingValues(horizontal = 14.dp),
+        modifier = Modifier.height(36.dp),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (bloom.value in 0.001f..0.999f) {
-                Box(
-                    Modifier
-                        .size(20.dp)
-                        .graphicsLayer {
-                            val b = bloom.value
-                            scaleX = 0.6f + 1.6f * b
-                            scaleY = 0.6f + 1.6f * b
-                            rotationZ = 120f * b
-                            alpha = (1f - b) * 0.5f
-                        }
-                        .clip(burstShape)
-                        .background(burstColor),
-                )
-            }
-            Icon(
-                icon,
-                null,
-                Modifier.size(20.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value },
-                tint = if (active) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-            )
-        }
+        Icon(icon, description, Modifier.size(20.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value })
         AnimatedContent(label, label = "count") { text ->
             if (text.isNotEmpty()) {
                 Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))

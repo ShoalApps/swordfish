@@ -52,6 +52,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -186,33 +188,28 @@ fun SearchScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                TextField(
-                    value = vm.query,
-                    onValueChange = vm::onQuery,
+            // Material 3's search bar field, kept in step with the view model's query.
+            val text = rememberTextFieldState(vm.query)
+            val barState = androidx.compose.material3.rememberSearchBarState()
+            LaunchedEffect(text) {
+                snapshotFlow { text.text.toString() }.collect { if (it != vm.query) vm.onQuery(it) }
+            }
+            LaunchedEffect(vm.query) {
+                if (text.text.toString() != vm.query) text.setTextAndPlaceCursorAtEnd(vm.query)
+            }
+            Box(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                androidx.compose.material3.SearchBarDefaults.InputField(
+                    textFieldState = text,
+                    searchBarState = barState,
+                    onSearch = { vm.submit(it); focusManager.clearFocus() },
                     placeholder = { Text("Search YouTube") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ),
+                    leadingIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                     trailingIcon = {
                         if (vm.query.isNotEmpty()) {
-                            IconButton(onClick = { vm.onQuery(""); focus.requestFocus() }) {
-                                Icon(Icons.Rounded.Close, "Clear")
-                            }
+                            IconButton(onClick = { vm.onQuery(""); focus.requestFocus() }) { Icon(Icons.Rounded.Close, "Clear") }
                         }
                     },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { vm.submit(); focusManager.clearFocus() }),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp).focusRequester(focus),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
             }
         },
