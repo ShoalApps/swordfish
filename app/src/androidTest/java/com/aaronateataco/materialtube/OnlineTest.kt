@@ -38,7 +38,7 @@ class OnlineTest : TubeTest() {
             if (isPlaying()) break
             assertTrue("no explanation shown", !gone(hasText("Try again")))
             assertTrue("gave up after two videos", attempt == 0)
-            androidx.test.espresso.Espresso.pressBack()
+            back()
             compose.onNodeWithContentDescription("Close").performClick()
             compose.waitForIdle()
         }
@@ -91,7 +91,7 @@ class OnlineTest : TubeTest() {
         compose.onAllNodes(hasContentDescription("Like comment")).onFirst().performClick()
         waitForDescription("Remove like", 5_000)
         // Back closes the panel and returns to the details, still on the same video.
-        androidx.test.espresso.Espresso.pressBack()
+        back()
         compose.waitUntil(5_000) { gone(hasContentDescription("Close comments")) }
         waitForText("Share")
     }
@@ -132,7 +132,8 @@ class OnlineTest : TubeTest() {
             compose.onAllNodes(hasContentDescription("Comments")).onFirst().performClick()
             val ok = runCatching { compose.waitUntil(30_000) { !gone(hasContentDescription("Like comment")) } }.isSuccess
             if (!ok) {
-                androidx.test.espresso.Espresso.pressBack()
+                // The comments sheet is its own window, so this needs a real key press.
+                androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
                 compose.onRoot().performTouchInput { swipeUp() }
             }
             ok

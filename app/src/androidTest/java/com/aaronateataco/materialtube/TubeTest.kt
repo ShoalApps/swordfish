@@ -63,6 +63,15 @@ abstract class TubeTest {
         }
     }
 
+    /**
+     * Presses Back through the activity, like Espresso.pressBack() but without waiting for window
+     * focus, which a slow emulator can briefly hand to a system dialog or a PiP window.
+     */
+    fun back() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
     fun tab(label: String): SemanticsNodeInteraction = compose.onNode(hasText(label) and isSelectable())
 
     fun waitFor(matcher: SemanticsMatcher, timeoutMs: Long = 10_000) {

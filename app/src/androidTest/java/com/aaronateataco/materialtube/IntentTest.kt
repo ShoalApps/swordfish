@@ -6,7 +6,6 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -29,7 +28,7 @@ class IntentTest : TubeTest() {
         waitForText("Comments")
 
         // Back shrinks the watch page into the mini player…
-        Espresso.pressBack()
+        back()
         waitForDescription("Close")
         // …and its close button removes it.
         compose.onNodeWithContentDescription("Close").performClick()
