@@ -134,5 +134,5 @@ jobs:
           git config user.email "ci@users.noreply.github.com"
           git checkout -q -b ci-shots
           git add -A
-          git commit -qm "Emulator run ${{ github.run_number }}" || true
+          if ! git commit -qm "Emulator run ${{ github.run_number }}"; then echo "No screenshots this run"; exit 0; fi
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ci-shots

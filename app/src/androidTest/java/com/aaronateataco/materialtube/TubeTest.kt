@@ -65,7 +65,7 @@ abstract class TubeTest {
     fun tab(label: String): SemanticsNodeInteraction = compose.onNode(hasText(label) and isSelectable())
 
     fun waitFor(matcher: SemanticsMatcher, timeoutMs: Long = 10_000) {
-        compose.waitUntil(timeoutMs) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(timeoutMs) { count(matcher) > 0 }
     }
 
     fun waitForText(text: String, timeoutMs: Long = 10_000, substring: Boolean = false) =
@@ -73,5 +73,9 @@ abstract class TubeTest {
 
     fun waitForDescription(desc: String, timeoutMs: Long = 10_000) = waitFor(hasContentDescription(desc), timeoutMs)
 
-    fun gone(matcher: SemanticsMatcher) = compose.onAllNodes(matcher).fetchSemanticsNodes().isEmpty()
+    fun gone(matcher: SemanticsMatcher) = count(matcher) == 0
+
+    /** Matching nodes on screen; 0 while the activity is briefly between states (e.g. handling a new intent). */
+    private fun count(matcher: SemanticsMatcher): Int =
+        try { compose.onAllNodes(matcher).fetchSemanticsNodes().size } catch (e: IllegalStateException) { 0 }
 }
