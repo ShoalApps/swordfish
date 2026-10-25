@@ -55,7 +55,14 @@ class MainActivity : ComponentActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
 
-        addOnPictureInPictureModeChangedListener { inPip.value = it.isInPictureInPictureMode }
+        addOnPictureInPictureModeChangedListener { info ->
+            inPip.value = info.isInPictureInPictureMode
+            // Leaving picture-in-picture while the app isn't on screen means the floating window was
+            // closed with its X (or swiped away): stop the video and autoplay, like the official app.
+            if (!info.isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                playerVm.close()
+            }
+        }
 
         // Android 12+: slide into picture-in-picture automatically when leaving mid-video.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

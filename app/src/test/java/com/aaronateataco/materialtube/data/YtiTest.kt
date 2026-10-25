@@ -97,4 +97,45 @@ class YtiTest {
         val root = parse("""{"a":{"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"TOKEN"}}}}}""")
         assertEquals("TOKEN", Yti.continuation(root))
     }
+
+    @Test fun commentActionsFromTheNewerLayout() {
+        val root = parse(
+            """
+            {"contents":[{"commentThreadRenderer":{"commentViewModel":{"commentViewModel":{
+                "commentId":"UgxABC","toolbarSurfaceKey":"surface-abc"}}}}],
+             "frameworkUpdates":{"entityBatchUpdate":{"mutations":[
+               {"entityKey":"surface-other","payload":{"engagementToolbarSurfaceEntityPayload":{
+                 "likeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"WRONG"}}}}}},
+               {"entityKey":"surface-abc","payload":{"engagementToolbarSurfaceEntityPayload":{
+                 "likeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"LIKE1"}}},
+                 "unlikeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"UNLIKE1"}}},
+                 "dislikeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"DISLIKE1"}}},
+                 "undislikeCommand":{"innertubeCommand":{"performCommentActionEndpoint":{"action":"UNDISLIKE1"}}}}}}
+             ]}}}
+            """,
+        )
+        assertEquals(
+            mapOf("like" to "LIKE1", "unlike" to "UNLIKE1", "dislike" to "DISLIKE1", "undislike" to "UNDISLIKE1"),
+            Yti.commentActions(root, "UgxABC"),
+        )
+    }
+
+    @Test fun commentActionsFromTheOlderLayout() {
+        val root = parse(
+            """
+            {"items":[{"commentRenderer":{"commentId":"UgxOLD","actionButtons":{"commentActionButtonsRenderer":{
+              "likeButton":{"toggleButtonRenderer":{
+                "defaultServiceEndpoint":{"performCommentActionEndpoint":{"action":"L"}},
+                "toggledServiceEndpoint":{"performCommentActionEndpoint":{"action":"UL"}}}},
+              "dislikeButton":{"toggleButtonRenderer":{
+                "defaultServiceEndpoint":{"performCommentActionEndpoint":{"action":"D"}},
+                "toggledServiceEndpoint":{"performCommentActionEndpoint":{"action":"UD"}}}}}}}}]}
+            """,
+        )
+        assertEquals(mapOf("like" to "L", "unlike" to "UL", "dislike" to "D", "undislike" to "UD"), Yti.commentActions(root, "UgxOLD"))
+    }
+
+    @Test fun commentActionsForAMissingCommentAreEmpty() {
+        assertTrue(Yti.commentActions(parse("""{"a":{"commentId":"other"}}"""), "UgxNONE").isEmpty())
+    }
 }

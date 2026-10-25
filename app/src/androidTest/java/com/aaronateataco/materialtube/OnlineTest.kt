@@ -67,7 +67,7 @@ class OnlineTest : TubeTest() {
         waitFor(hasText("Subscribe") or hasText("Subscribed"), 30_000)
     }
 
-    @Test fun commentsOpenOnTheWatchPage() {
+    @Test fun commentsOpenUnderTheVideoAndCanBeLiked() {
         compose.activityRule.scenario.onActivity {
             it.startActivity(
                 android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=dQw4w9WgXcQ"))
@@ -77,7 +77,27 @@ class OnlineTest : TubeTest() {
         waitForText("Comments")
         compose.waitUntil(30_000) { gone(hasText("Loading comments…")) }
         compose.onAllNodes(hasText("Comments")).onFirst().performClick()
+        // The panel opens under the video: the player's controls are still on screen.
+        waitForDescription("Close comments", 10_000)
+        val video = compose.onNode(androidx.compose.ui.test.hasTestTag("video-surface"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val panel = compose.onNode(hasContentDescription("Close comments")).fetchSemanticsNode().boundsInRoot
+        assertTrue("the video should be on screen (height ${video.height})", video.height > 100f)
+        assertTrue("the video should sit above the comments, not under them", video.bottom <= panel.top)
         waitForText("Sign in to comment and reply", 10_000)
+        // Liking a comment fills its thumb in.
+        compose.onAllNodes(hasContentDescription("Like comment")).onFirst().performClick()
+        waitForDescription("Remove like", 5_000)
+        // Back closes the panel and returns to the details, still on the same video.
+        androidx.test.espresso.Espresso.pressBack()
+        compose.waitUntil(5_000) { gone(hasContentDescription("Close comments")) }
+        waitForText("Share")
+    }
+
+    @Test fun chartVideosGetChannelPictures() {
+        // Charts arrive without channel pictures; the app looks them up.
+        val repo = AppGraph.repo
+        val url = kotlinx.coroutines.runBlocking { repo.channelAvatar("https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw") }
+        assertTrue("expected a picture URL, got $url", url != null && url.startsWith("http"))
     }
 
     @Test fun subscribingAddsTheChannel() {

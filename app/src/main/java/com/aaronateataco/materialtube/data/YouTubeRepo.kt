@@ -83,6 +83,23 @@ class YouTubeRepo {
         ids.map { id -> async { runCatching { stream("https://www.youtube.com/watch?v=$id") } } }.awaitAll()
     }
 
+    /** Channel pictures looked up for videos that arrived without one (chart and search results). */
+    private val avatarCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val avatarGate = Semaphore(3)
+
+    /** A channel's picture, fetched once per session; null if it can't be found. */
+    suspend fun channelAvatar(channelUrl: String): String? {
+        avatarCache[channelUrl]?.let { return it.ifEmpty { null } }
+        return avatarGate.withPermit {
+            avatarCache[channelUrl]?.let { return@withPermit it.ifEmpty { null } }
+            val url = runCatching {
+                withContext(Dispatchers.IO) { ChannelInfo.getInfo(yt, channelUrl).avatars.smallUrl() }
+            }.getOrNull()
+            avatarCache[channelUrl] = url.orEmpty()
+            url
+        }
+    }
+
     suspend fun channel(url: String): ChannelDetails = withContext(Dispatchers.IO) {
         val info = ChannelInfo.getInfo(yt, url)
         ChannelDetails(

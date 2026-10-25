@@ -295,6 +295,15 @@ fun Avatar(url: String?, size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
+/** Looks up a channel picture for videos that came without one (charts, some search results). */
+@Composable
+fun rememberChannelAvatar(channelUrl: String?): String? {
+    val url by produceState<String?>(null, channelUrl) {
+        value = channelUrl?.let { AppGraph.repo.channelAvatar(it) }
+    }
+    return url
+}
+
 /** The ⋮ menu on every video. */
 @Composable
 fun VideoMenu(item: VideoItem, onChannel: ((String) -> Unit)?) {
@@ -361,7 +370,7 @@ fun VideoCard(
         )
         Row(Modifier.padding(start = if (inGrid) 0.dp else 12.dp, top = 12.dp)) {
             Avatar(
-                url = item.channelAvatar,
+                url = item.channelAvatar ?: rememberChannelAvatar(item.channelUrl),
                 size = 36.dp,
                 modifier = Modifier.clickable(enabled = onChannel != null && item.channelUrl != null) {
                     item.channelUrl?.let { onChannel?.invoke(it) }

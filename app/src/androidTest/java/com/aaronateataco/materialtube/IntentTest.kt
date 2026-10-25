@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +36,37 @@ class IntentTest : TubeTest() {
         compose.waitForIdle()
         assertTrue(gone(hasText("Share")))
         assertTrue(gone(hasContentDescription("Close")))
+        // Closing stops playback outright, so autoplay has nothing to start.
+        val (state, items) = compose.runOnUiThread {
+            com.aaronateataco.materialtube.player.PlayerHolder.player.playbackState to com.aaronateataco.materialtube.player.PlayerHolder.player.mediaItemCount
+        }
+        assertEquals(androidx.media3.common.Player.STATE_IDLE, state)
+        assertEquals(0, items)
+    }
+
+    @Test fun closingPictureInPictureStopsEverything() {
+        send(Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/dQw4w9WgXcQ")))
+        waitForText("Share")
+        // What Android does when the floating window's X is pressed: the app stops, then leaves PiP.
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        compose.activityRule.scenario.onActivity { it.onPictureInPictureModeChanged(false, it.resources.configuration) }
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        compose.waitForIdle()
+        val (state, items) = compose.runOnUiThread {
+            com.aaronateataco.materialtube.player.PlayerHolder.player.playbackState to com.aaronateataco.materialtube.player.PlayerHolder.player.mediaItemCount
+        }
+        assertEquals("player should be idle", androidx.media3.common.Player.STATE_IDLE, state)
+        assertEquals("nothing left to autoplay", 0, items)
+        assertTrue("the player should be closed", gone(hasText("Share")))
+    }
+
+    @Test fun expandingPictureInPictureKeepsTheVideo() {
+        send(Intent(Intent.ACTION_VIEW, Uri.parse("https://youtu.be/dQw4w9WgXcQ")))
+        waitForText("Share")
+        // Tapping the floating window to return: the app is visible again when PiP ends.
+        compose.activityRule.scenario.onActivity { it.onPictureInPictureModeChanged(false, it.resources.configuration) }
+        compose.waitForIdle()
+        assertTrue("the watch page should still be open", !gone(hasText("Share")))
     }
 
     @Test fun sharedTextWithALinkOpensThePlayer() {

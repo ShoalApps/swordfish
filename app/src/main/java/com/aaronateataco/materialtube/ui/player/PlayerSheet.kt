@@ -102,6 +102,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
@@ -607,7 +608,7 @@ private fun MiniInfo(vm: PlayerViewModel, modifier: Modifier) {
 /** Draws video onto a TextureView so it animates smoothly with the sheet. */
 @Composable
 fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
-    Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+    Box(modifier.background(Color.Black).testTag("video-surface"), contentAlignment = Alignment.Center) {
         AndroidView(
             factory = { ctx -> TextureView(ctx).also { vm.player.setVideoTextureView(it) } },
             onRelease = { vm.player.clearVideoTextureView(it) },
@@ -1153,6 +1154,17 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
     }
 
     val settings by AppGraph.store.settings.collectAsState()
+    // Comments and the description open in place of the details, under the video, so it stays in view.
+    if (showComments) {
+        BackHandler { showComments = false }
+        CommentsPanel(vm, onLink, modifier) { showComments = false }
+        return
+    }
+    if (showDescription && item != null) {
+        BackHandler { showDescription = false }
+        DescriptionPanel(vm, onLink, modifier) { showDescription = false }
+        return
+    }
     val navPad = if (includeRelated) 0.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     LazyColumn(modifier.fillMaxWidth(), state = com.aaronateataco.materialtube.ui.components.rememberCachedListState(), contentPadding = PaddingValues(bottom = 24.dp + navPad)) {
         if (item != null) {
@@ -1192,7 +1204,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Avatar(item.channelAvatar ?: info?.uploaderAvatars?.firstOrNull()?.url, 36.dp)
+                    Avatar(item.channelAvatar ?: info?.uploaderAvatars?.firstOrNull()?.url ?: com.aaronateataco.materialtube.ui.components.rememberChannelAvatar(channelUrl), 36.dp)
                     // Name and count share the space left of the button; a long name ellipsizes first.
                     Row(Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -1262,8 +1274,6 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
         }
     }
 
-    if (showDescription && item != null) DescriptionSheet(vm, onLink) { showDescription = false }
-    if (showComments) CommentsSheet(vm, onLink) { showComments = false }
 }
 
 /** Like and dislike as a Material 3 Expressive connected toggle-button group. */
@@ -1396,20 +1406,14 @@ private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun DescriptionSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismiss: () -> Unit) {
+private fun DescriptionPanel(vm: PlayerViewModel, onLink: (String) -> Unit, modifier: Modifier, onDismiss: () -> Unit) {
     val item = vm.current ?: return
     val info = vm.info
     val text = rememberHtml(info?.description?.content, onLink)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    Column(modifier.fillMaxWidth()) {
+        PanelHeader("Description", onDismiss)
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
-                Text(
-                    "Description",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 Text(
                     rememberBranding(item)?.title ?: item.title,
                     style = MaterialTheme.typography.titleMedium,
@@ -1468,6 +1472,18 @@ private fun DescriptionSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDi
     }
 }
 
+/** Title and close button at the top of the comments and description panels. */
+@Composable
+private fun PanelHeader(title: String, onClose: () -> Unit) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.weight(1f))
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Close $title".lowercase().replaceFirstChar { it.uppercase() }) }
+        }
+        HorizontalDivider()
+    }
+}
+
 @Composable
 private fun Stat(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1477,25 +1493,19 @@ private fun Stat(value: String, label: String) {
 }
 
 @Composable
-private fun CommentsSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismiss: () -> Unit) {
+private fun CommentsPanel(vm: PlayerViewModel, onLink: (String) -> Unit, modifier: Modifier, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var replyTo by remember { mutableStateOf<Comment?>(null) }
     var draft by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     val signedIn = AppGraph.store.signedIn
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxHeight(0.92f)) {
-            Text(
-                "Comments",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+    run {
+        Column(modifier.fillMaxWidth().imePadding()) {
+            PanelHeader("Comments", onDismiss)
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                 itemsIndexed(vm.comments, key = { i, c -> c.id.ifEmpty { "c$i" } }) { i, c ->
-                    CommentRow(c, onLink, onReply = if (signedIn) ({ replyTo = c }) else null)
+                    CommentRow(c, vm, onLink, onReply = if (signedIn) ({ replyTo = c }) else null)
                     if (c.repliesPage != null || vm.replies.containsKey(c.id)) {
                         val open = vm.replies.containsKey(c.id)
                         TextButton(
@@ -1514,7 +1524,7 @@ private fun CommentsSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismi
                         androidx.compose.animation.AnimatedVisibility(open) {
                             Column(Modifier.padding(start = 40.dp)) {
                                 vm.replies[c.id].orEmpty().forEach { r ->
-                                    CommentRow(r, onLink, onReply = if (signedIn) ({ replyTo = c }) else null, small = true)
+                                    CommentRow(r, vm, onLink, onReply = if (signedIn) ({ replyTo = c }) else null, small = true)
                                 }
                             }
                         }
@@ -1531,7 +1541,7 @@ private fun CommentsSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismi
             HorizontalDivider()
             // Compose box, like the official app.
             if (signedIn) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).navigationBarsPadding().imePadding()) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).navigationBarsPadding()) {
                     replyTo?.let { r ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -1584,8 +1594,12 @@ private fun CommentsSheet(vm: PlayerViewModel, onLink: (String) -> Unit, onDismi
 }
 
 @Composable
-private fun CommentRow(c: Comment, onLink: (String) -> Unit, onReply: (() -> Unit)?, small: Boolean = false) {
+private fun CommentRow(c: Comment, vm: PlayerViewModel, onLink: (String) -> Unit, onReply: (() -> Unit)?, small: Boolean = false) {
     val text = rememberHtml(c.html, onLink)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val rating = vm.commentRatings[c.id] ?: Rating.NONE
+    val rate: (Rating) -> Unit = { target -> scope.launch { vm.rateComment(c, target)?.let { toast(context, it) } } }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (small) 6.dp else 10.dp)) {
         Avatar(c.avatar, if (small) 24.dp else 28.dp)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
@@ -1600,17 +1614,35 @@ private fun CommentRow(c: Comment, onLink: (String) -> Unit, onReply: (() -> Uni
                 )
             }
             Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
-            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.ThumbUp, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (c.likes > 0) {
-                    Text(
-                        formatCount(c.likes.toLong()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 6.dp),
+            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                val liked = rating == Rating.LIKE
+                val disliked = rating == Rating.DISLIKE
+                val likes = c.likes + if (liked) 1 else 0
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).clickable { rate(Rating.LIKE) }.padding(horizontal = 6.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
+                        if (liked) "Remove like" else "Like comment",
+                        Modifier.size(18.dp),
+                        tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (likes > 0) {
+                        Text(
+                            formatCount(likes.toLong()),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
                 }
-                Icon(Icons.Outlined.ThumbDown, null, Modifier.padding(start = 16.dp).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(
+                    if (disliked) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDown,
+                    if (disliked) "Remove dislike" else "Dislike comment",
+                    Modifier.padding(start = 4.dp).clip(RoundedCornerShape(50)).clickable { rate(Rating.DISLIKE) }.padding(6.dp).size(18.dp),
+                    tint = if (disliked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (c.hearted) {
                     Icon(Icons.Rounded.Favorite, "Hearted by creator", Modifier.padding(start = 16.dp).size(16.dp), tint = Color(0xFFE53935))
                 }

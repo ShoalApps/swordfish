@@ -279,6 +279,22 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         }
     }
 
+    /**
+     * Likes, dislikes or clears your rating on a comment. YouTube only hands out the action tokens
+     * with the signed-in comments page, so this works for comments on its first page.
+     */
+    suspend fun rateComment(videoId: String, commentId: String, from: com.aaronateataco.materialtube.player.Rating, to: com.aaronateataco.materialtube.player.Rating) {
+        val page = commentsPage(videoId)
+        val tokens = withContext(Dispatchers.Default) { Yti.commentActions(page, commentId) }
+        val kind = when (to) {
+            com.aaronateataco.materialtube.player.Rating.LIKE -> "like"
+            com.aaronateataco.materialtube.player.Rating.DISLIKE -> "dislike"
+            com.aaronateataco.materialtube.player.Rating.NONE -> if (from == com.aaronateataco.materialtube.player.Rating.DISLIKE) "undislike" else "unlike"
+        }
+        val token = tokens[kind] ?: throw IOException("YouTube only allows rating comments near the top of the list")
+        post("comment/perform_comment_action") { putJsonArray("actions") { add(JsonPrimitive(token)) } }
+    }
+
     suspend fun saveToWatchLater(videoId: String) {
         post("browse/edit_playlist") {
             put("playlistId", "WL")
@@ -320,6 +336,15 @@ object Yti {
                 walk(v, visit)
             }
             is JsonArray -> el.forEach { walk(it, visit) }
+            else -> Unit
+        }
+    }
+
+    /** Calls [visit] on every object anywhere in [el], including objects directly inside arrays. */
+    fun everyObject(el: JsonElement?, visit: (JsonObject) -> Unit) {
+        when (el) {
+            is JsonObject -> { visit(el); el.values.forEach { everyObject(it, visit) } }
+            is JsonArray -> el.forEach { everyObject(it, visit) }
             else -> Unit
         }
     }
@@ -424,6 +449,47 @@ object Yti {
             } else false
         }
         return out.distinctBy { it.pageId ?: "main:${it.name}" }
+    }
+
+    /**
+     * The like/unlike/dislike/undislike action tokens for one comment, from either of YouTube's
+     * comment layouts: the newer one (a commentViewModel pointing at a toolbar entity) or the older
+     * commentRenderer with toggle buttons.
+     */
+    fun commentActions(root: JsonElement, commentId: String): Map<String, String> {
+        val out = mutableMapOf<String, String>()
+        fun actionIn(el: JsonElement?): String? =
+            findFirst(el, "performCommentActionEndpoint")?.get("action").str
+        // Newer layout.
+        var surfaceKey: String? = null
+        everyObject(root) { v -> if (surfaceKey == null && v["commentId"].str == commentId) surfaceKey = v["toolbarSurfaceKey"].str }
+        surfaceKey?.let { key ->
+            var surface: JsonObject? = null
+            everyObject(root) { v -> if (surface == null && v["entityKey"].str == key) surface = v }
+            surface?.let { s ->
+                for ((name, kind) in listOf("likeCommand" to "like", "unlikeCommand" to "unlike", "dislikeCommand" to "dislike", "undislikeCommand" to "undislike")) {
+                    findFirst(s, name)?.let(::actionIn)?.let { out[kind] = it }
+                }
+            }
+        }
+        if (out.isNotEmpty()) return out
+        // Older layout.
+        var renderer: JsonObject? = null
+        walk(root) { k, v ->
+            if (renderer == null && k == "commentRenderer" && v["commentId"].str == commentId) renderer = v
+            renderer != null
+        }
+        renderer?.let { r ->
+            findFirst(r, "likeButton")?.let { b ->
+                actionIn(b["toggleButtonRenderer"].obj?.get("defaultServiceEndpoint"))?.let { out["like"] = it }
+                actionIn(b["toggleButtonRenderer"].obj?.get("toggledServiceEndpoint"))?.let { out["unlike"] = it }
+            }
+            findFirst(r, "dislikeButton")?.let { b ->
+                actionIn(b["toggleButtonRenderer"].obj?.get("defaultServiceEndpoint"))?.let { out["dislike"] = it }
+                actionIn(b["toggleButtonRenderer"].obj?.get("toggledServiceEndpoint"))?.let { out["undislike"] = it }
+            }
+        }
+        return out
     }
 
     fun channels(root: JsonElement): List<Sub> {
