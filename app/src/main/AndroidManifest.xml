@@ -22,7 +22,7 @@
 
     <!-- Only apps signed with the same key may read the hand-off below. -->
     <permission
-        android:name="io.github.swordfishapps.permission.MOVE_DATA"
+        android:name="io.github.shoalapps.permission.MOVE_DATA"
         android:protectionLevel="signature" />
 
     <application
@@ -105,11 +105,11 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
-        <!-- Hands settings and sign-ins to the Swordfish version of this app (new package name). -->
+        <!-- Hands settings and sign-ins to the Anglerfish version of this app (new package name). -->
         <provider
             android:name=".LegacyExport"
             android:authorities="${applicationId}.movedata"
             android:exported="true"
-            android:permission="io.github.swordfishapps.permission.MOVE_DATA" />
+            android:permission="io.github.shoalapps.permission.MOVE_DATA" />
     </application>
 </manifest>

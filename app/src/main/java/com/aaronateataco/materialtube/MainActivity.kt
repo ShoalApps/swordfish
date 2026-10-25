@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        SwordfishNotice.show(this)
+        ShoalNotice.show(this)
         enableEdgeToEdge()
         crashReport.value = CrashReporter.take(this)
         AppGraph.checkForUpdate()
