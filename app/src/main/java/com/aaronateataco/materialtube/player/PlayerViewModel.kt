@@ -274,7 +274,7 @@ class PlayerViewModel : ViewModel() {
         if (!keepRecovered) recovered = false
         info = null; error = null; segments = emptyList(); votes = null; rating = Rating.NONE
         related = emptyList(); skipped = null; skippedIds.clear(); firstFrame = false
-        comments = emptyList(); commentsNext = null; commentsError = null; replies.clear(); commentRatings.clear()
+        comments = emptyList(); commentsNext = null; commentsError = null; replies.clear()
         captionTracks = emptyList(); captionTrack = null; cues = emptyList(); captionText = null
         chapters = emptyList(); chapterIndex = -1
         quality = preferredQuality()
@@ -405,20 +405,8 @@ class PlayerViewModel : ViewModel() {
     val hasMoreComments get() = commentsNext != null
 
     /** Your like/dislike on each comment, shown straight away. */
-    val commentRatings = androidx.compose.runtime.mutableStateMapOf<String, Rating>()
 
     /** Likes or dislikes a comment (tapping the same again clears it). Returns a message to show, or null. */
-    suspend fun rateComment(c: Comment, target: Rating): String? {
-        val from = commentRatings[c.id] ?: Rating.NONE
-        val to = if (from == target) Rating.NONE else target
-        commentRatings[c.id] = to
-        if (!store.signedIn) return "Sign in to save comment likes to YouTube"
-        val videoId = info?.id ?: current?.id ?: return null
-        return runCatching { AppGraph.account.rateComment(videoId, c.id, from, to) }.exceptionOrNull()?.let { e ->
-            commentRatings[c.id] = from
-            e.message ?: "Couldn't rate that comment"
-        }
-    }
 
     /** Changes quality for this video only; the defaults live in Settings. */
     fun changeQuality(q: Int) {

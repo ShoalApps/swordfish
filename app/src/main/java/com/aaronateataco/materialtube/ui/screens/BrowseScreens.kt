@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -256,7 +258,12 @@ fun SearchScreen(
                         last >= listState.layoutInfo.totalItemsCount - 4
                     }.distinctUntilChanged().filter { it }.collect { vm.loadMore() }
                 }
-                LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(LocalBottomPadding.current)) {
+                // Wide screens get a readable list (thumbnail beside the details), like the official tablet search.
+                LazyColumn(
+                    Modifier.fillMaxSize().then(if (columns > 1) Modifier.wrapContentWidth().widthIn(max = 1000.dp) else Modifier),
+                    state = listState,
+                    contentPadding = listPadding(LocalBottomPadding.current),
+                ) {
                     item(key = "filters") {
                         androidx.compose.foundation.lazy.LazyRow(
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -276,13 +283,18 @@ fun SearchScreen(
                         vm.loading -> item { SkeletonCards() }
                         vm.error != null -> item { ErrorState(vm.error!!, { vm.submit() }) }
                         else -> {
-                            // Channels get a full row; runs of videos between them fill the grid.
                             var run = mutableListOf<VideoItem>()
                             val flush = {
                                 val videos = run
                                 if (videos.isNotEmpty()) {
-                                    videoGrid(videos, columns, keyPrefix = "v") { v, _, mod ->
-                                        VideoCard(v, { onVideo(v) }, onChannel, mod, inGrid = columns > 1)
+                                    if (columns > 1) {
+                                        videos.forEach { v ->
+                                            item(key = "v" + v.id) {
+                                                com.aaronateataco.materialtube.ui.components.VideoRow(v, { onVideo(v) }, Modifier.animateItem(), large = true)
+                                            }
+                                        }
+                                    } else {
+                                        videoGrid(videos, 1, keyPrefix = "v") { v, _, mod -> VideoCard(v, { onVideo(v) }, onChannel, mod) }
                                     }
                                 }
                                 run = mutableListOf()

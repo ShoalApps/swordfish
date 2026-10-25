@@ -880,7 +880,7 @@ private fun ShortComments(item: VideoItem, onDismiss: () -> Unit) {
                             Text(listOfNotNull(c.author, c.date).joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             val text = remember(c.html) { runCatching { AnnotatedString.fromHtml(c.html) }.getOrElse { AnnotatedString(c.html) } }
                             Text(text, style = MaterialTheme.typography.bodyMedium)
-                            if (c.likes > 0) Text("${formatCount(c.likes.toLong())} likes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            com.aaronateataco.materialtube.ui.player.CommentThumbs(item.id, c)
                         }
                     }
                 }

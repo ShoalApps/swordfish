@@ -406,7 +406,7 @@ fun VideoCard(
 
 /** Compact row: small thumbnail on the left (history, playlists). */
 @Composable
-fun VideoRow(item: VideoItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun VideoRow(item: VideoItem, onClick: () -> Unit, modifier: Modifier = Modifier, large: Boolean = false) {
     val branding = rememberBranding(item)
     val source = remember { MutableInteractionSource() }
     var bounds by remember { mutableStateOf<Rect?>(null) }
@@ -423,13 +423,13 @@ fun VideoRow(item: VideoItem, onClick: () -> Unit, modifier: Modifier = Modifier
         Thumbnail(
             item,
             branding,
-            Modifier.width(164.dp).onGloballyPositioned { bounds = it.boundsInRoot() },
-            corner = 8.dp,
+            Modifier.width(if (large) 360.dp else 164.dp).onGloballyPositioned { bounds = it.boundsInRoot() },
+            corner = if (large) 12.dp else 8.dp,
         )
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
             Text(
                 text = branding?.title ?: item.title,
-                style = MaterialTheme.typography.titleSmall,
+                style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )

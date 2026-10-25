@@ -140,6 +140,7 @@ import com.aaronateataco.materialtube.data.Sub
 import com.aaronateataco.materialtube.data.VideoItem
 import com.aaronateataco.materialtube.data.formatCount
 import com.aaronateataco.materialtube.data.formatDuration
+import com.aaronateataco.materialtube.player.CommentRatings
 import com.aaronateataco.materialtube.player.PlayerViewModel
 import com.aaronateataco.materialtube.ui.components.Avatar
 import com.aaronateataco.materialtube.ui.components.ErrorState
@@ -1593,13 +1594,48 @@ private fun CommentsPanel(vm: PlayerViewModel, onLink: (String) -> Unit, modifie
     }
 }
 
+/** Like and dislike for a comment; the like count goes up by one while you like it. */
+@Composable
+fun CommentThumbs(videoId: String, c: Comment) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val rating = CommentRatings[c.id]
+    val rate: (Rating) -> Unit = { target -> scope.launch { CommentRatings.rate(videoId, c, target)?.let { toast(context, it) } } }
+    val liked = rating == Rating.LIKE
+    val disliked = rating == Rating.DISLIKE
+    val likes = c.likes + if (liked) 1 else 0
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).clickable { rate(Rating.LIKE) }.padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
+                if (liked) "Remove like" else "Like comment",
+                Modifier.size(18.dp),
+                tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (likes > 0) {
+                Text(
+                    formatCount(likes.toLong()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+        }
+        Icon(
+            if (disliked) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDown,
+            if (disliked) "Remove dislike" else "Dislike comment",
+            Modifier.padding(start = 4.dp).clip(RoundedCornerShape(50)).clickable { rate(Rating.DISLIKE) }.padding(6.dp).size(18.dp),
+            tint = if (disliked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun CommentRow(c: Comment, vm: PlayerViewModel, onLink: (String) -> Unit, onReply: (() -> Unit)?, small: Boolean = false) {
     val text = rememberHtml(c.html, onLink)
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val rating = vm.commentRatings[c.id] ?: Rating.NONE
-    val rate: (Rating) -> Unit = { target -> scope.launch { vm.rateComment(c, target)?.let { toast(context, it) } } }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (small) 6.dp else 10.dp)) {
         Avatar(c.avatar, if (small) 24.dp else 28.dp)
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
@@ -1615,34 +1651,7 @@ private fun CommentRow(c: Comment, vm: PlayerViewModel, onLink: (String) -> Unit
             }
             Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
             Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                val liked = rating == Rating.LIKE
-                val disliked = rating == Rating.DISLIKE
-                val likes = c.likes + if (liked) 1 else 0
-                Row(
-                    Modifier.clip(RoundedCornerShape(50)).clickable { rate(Rating.LIKE) }.padding(horizontal = 6.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
-                        if (liked) "Remove like" else "Like comment",
-                        Modifier.size(18.dp),
-                        tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (likes > 0) {
-                        Text(
-                            formatCount(likes.toLong()),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 6.dp),
-                        )
-                    }
-                }
-                Icon(
-                    if (disliked) Icons.Rounded.ThumbDown else Icons.Outlined.ThumbDown,
-                    if (disliked) "Remove dislike" else "Dislike comment",
-                    Modifier.padding(start = 4.dp).clip(RoundedCornerShape(50)).clickable { rate(Rating.DISLIKE) }.padding(6.dp).size(18.dp),
-                    tint = if (disliked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                (vm.info?.id ?: vm.current?.id)?.let { CommentThumbs(it, c) }
                 if (c.hearted) {
                     Icon(Icons.Rounded.Favorite, "Hearted by creator", Modifier.padding(start = 16.dp).size(16.dp), tint = Color(0xFFE53935))
                 }

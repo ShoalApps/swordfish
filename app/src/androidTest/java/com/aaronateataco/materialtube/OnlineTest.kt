@@ -7,7 +7,10 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -119,5 +122,29 @@ class OnlineTest : TubeTest() {
         tab("Shorts").performClick()
         compose.waitUntil(60_000) { !gone(hasText("Comments")) || !gone(hasText("Try again")) }
         assertTrue("Shorts showed an error", gone(hasText("Try again")))
+    }
+
+    @Test fun shortsCommentsCanBeLikedAndDisliked() {
+        tab("Shorts").performClick()
+        // Some Shorts have comments turned off or slow to load; move on to the next one if so.
+        val found = (1..3).any {
+            compose.waitUntil(60_000) { !gone(hasContentDescription("Comments")) }
+            compose.onAllNodes(hasContentDescription("Comments")).onFirst().performClick()
+            val ok = runCatching { compose.waitUntil(30_000) { !gone(hasContentDescription("Like comment")) } }.isSuccess
+            if (!ok) {
+                androidx.test.espresso.Espresso.pressBack()
+                compose.onRoot().performTouchInput { swipeUp() }
+            }
+            ok
+        }
+        assertTrue("no Short with comments in three tries", found)
+        compose.onAllNodes(hasContentDescription("Like comment")).onFirst().performClick()
+        waitForDescription("Remove like", 5_000)
+        // Disliking swaps the like for a dislike.
+        compose.onAllNodes(hasContentDescription("Dislike comment")).onFirst().performClick()
+        waitForDescription("Remove dislike", 5_000)
+        assertTrue("like should be cleared", gone(hasContentDescription("Remove like")))
+        compose.onAllNodes(hasContentDescription("Remove dislike")).onFirst().performClick()
+        compose.waitUntil(5_000) { gone(hasContentDescription("Remove dislike")) }
     }
 }
