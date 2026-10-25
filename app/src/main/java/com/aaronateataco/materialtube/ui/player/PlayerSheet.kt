@@ -196,13 +196,16 @@ import kotlin.math.roundToInt
 private fun lerpF(a: Float, b: Float, t: Float) = a + (b - a) * t
 
 private val MiniHeight = 64.dp
-private val NavBarHeight = 80.dp
+/** Height of Material 3 Expressive's short navigation bar. */
+private val NavBarHeight = 64.dp
 
 @Composable
 fun PlayerSheet(
     vm: PlayerViewModel,
     bottomBarVisible: Boolean,
     onChannel: (String) -> Unit,
+    /** Width of a navigation rail on the left, which the mini player keeps clear of. */
+    startInset: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -334,6 +337,7 @@ fun PlayerSheet(
                     transformOrigin = TransformOrigin(0.5f, 0.35f)
                     alpha = if (launching) l.coerceIn(0f, 1f) else 1f
                 }
+                .padding(start = lerp(startInset, 0.dp, p))
                 .padding(horizontal = sidePad)
                 .fillMaxWidth()
                 .height(with(density) { height.toDp() }),

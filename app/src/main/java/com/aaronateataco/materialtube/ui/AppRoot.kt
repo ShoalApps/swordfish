@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.aaronateataco.materialtube.ui
 
 import android.net.Uri
@@ -35,8 +37,12 @@ import androidx.compose.material.icons.rounded.Subscriptions
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailItem
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,6 +94,16 @@ private val tabs = listOf(
 )
 
 private fun isTab(route: String?) = tabs.any { it.route == route }
+
+/** A tab's icon; the You tab shows your profile picture once signed in, like the official app. */
+@Composable
+private fun TabIcon(tab: Tab, selected: Boolean, avatar: String?) {
+    if (tab.route == "you" && avatar != null) {
+        Avatar(avatar, 26.dp, if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+    } else {
+        Icon(if (selected) tab.selected else tab.unselected, tab.label)
+    }
+}
 
 /** Set once the first Home feed has loaded, so the intro can step aside. */
 object StartupState {
@@ -156,7 +172,9 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // Like the official app, the mini player steps aside while you're in Shorts.
     val miniHidden = route == "shorts" || route == "login"
-    val bottomExtra = (if (showBar) 0.dp else navInset) + (if (vm.sheetVisible && !miniHidden) 76.dp else 0.dp)
+    val useRail = LocalConfiguration.current.screenWidthDp >= 600
+    val bottomExtra = (if (showBar && !useRail) 0.dp else navInset) +
+        (if (vm.sheetVisible && !miniHidden && !com.aaronateataco.materialtube.ui.components.isWideScreen()) 76.dp else 0.dp)
 
     val openVideo: (VideoItem) -> Unit = { vm.open(it) }
     val openChannel: (String) -> Unit = { url ->
@@ -165,49 +183,45 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
     }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+      Row(Modifier.fillMaxSize()) {
+        // Material adaptive navigation: a rail beside the content from medium widths up.
+        if (useRail) {
+            WideNavigationRail {
+                visibleTabs.forEach { tab ->
+                    val selected = route == tab.route
+                    WideNavigationRailItem(
+                        selected = selected,
+                        onClick = { goTab(tab.route) },
+                        icon = { TabIcon(tab, selected, account?.avatar) },
+                        label = { Text(tab.label) },
+                        railExpanded = false,
+                    )
+                }
+            }
+        }
         Scaffold(
+            modifier = Modifier.weight(1f),
             contentWindowInsets = WindowInsets(0),
             bottomBar = {
                 AnimatedVisibility(
-                    visible = showBar,
+                    visible = showBar && !useRail,
                     enter = slideInVertically { it } + fadeIn(),
                     exit = slideOutVertically { it } + fadeOut(),
                 ) {
-                    // On wide screens the tabs gather in the middle instead of spreading edge to edge.
-                    Box(
-                        Modifier
-                            .graphicsLayer {
-                                translationY = if (vm.sheetVisible && !miniHidden) size.height * vm.expand.value else 0f
-                            }
-                            .fillMaxWidth()
-                            .background(androidx.compose.material3.NavigationBarDefaults.containerColor),
-                        contentAlignment = androidx.compose.ui.Alignment.Center,
-                    ) {
-                    NavigationBar(
-                        modifier = Modifier.widthIn(max = 640.dp),
+                    ShortNavigationBar(
+                        modifier = Modifier.graphicsLayer {
+                            translationY = if (vm.sheetVisible && !miniHidden) size.height * vm.expand.value else 0f
+                        },
                     ) {
                         visibleTabs.forEach { tab ->
                             val selected = route == tab.route
-                            NavigationBarItem(
+                            ShortNavigationBarItem(
                                 selected = selected,
                                 onClick = { goTab(tab.route) },
-                                alwaysShowLabel = settings.navLabels,
-                                icon = {
-                                    val avatar = account?.avatar
-                                    if (tab.route == "you" && avatar != null) {
-                                        Avatar(
-                                            avatar,
-                                            26.dp,
-                                            if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier,
-                                        )
-                                    } else {
-                                        Icon(if (selected) tab.selected else tab.unselected, tab.label)
-                                    }
-                                },
-                                label = if (settings.navLabels) ({ Text(tab.label) }) else null,
+                                icon = { TabIcon(tab, selected, account?.avatar) },
+                                label = { if (settings.navLabels) Text(tab.label) },
                             )
                         }
-                    }
                     }
                 }
             },
@@ -289,8 +303,10 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
             }
         }
 
+      }
+
         if (vm.sheetVisible && !inPip && !miniHidden) {
-            PlayerSheet(vm, bottomBarVisible = showBar, onChannel = openChannel)
+            PlayerSheet(vm, bottomBarVisible = showBar && !useRail, onChannel = openChannel, startInset = if (useRail) 96.dp else 0.dp)
         }
 
         IntroOverlay()
