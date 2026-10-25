@@ -21,7 +21,19 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Unpack the release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TINTLOOM_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "TINTLOOM_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+
       - name: Build release APK and run unit tests
+        env:
+          TINTLOOM_KEYSTORE_PASSWORD: ${{ secrets.TINTLOOM_KEYSTORE_PASSWORD }}
+          TINTLOOM_KEY_ALIAS: ${{ secrets.TINTLOOM_KEY_ALIAS }}
         run: |
           set -o pipefail
           ./gradlew assembleRelease testDebugUnitTest --stacktrace 2>&1 | tee build.log

@@ -430,7 +430,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 },
             )
         }
-        item { Link("Source code", "github.com/$GITHUB_USER/tube") { openExternal(context, "https://github.com/$GITHUB_USER/tube") } }
+        item { Link("Source code", "github.com/Tintloom/video") { openExternal(context, "https://github.com/Tintloom/video") } }
         item { Section("Licence") }
         item { Link("GNU GPL v3", "Read the full licence") { openExternal(context, "https://www.gnu.org/licenses/gpl-3.0.html") } }
         item {

@@ -24,22 +24,24 @@ android {
         animationsDisabled = true
     }
 
+    // The release key lives only in GitHub Actions secrets, never in the repo.
+    // Builds without it (your own machine, forks) are signed with the normal debug key.
+    val releaseKey = System.getenv("TINTLOOM_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
     signingConfigs {
-        create("tube") {
-            storeFile = file("tube.keystore")
-            storePassword = "tubetube"
-            keyAlias = "tube"
-            keyPassword = "tubetube"
+        if (releaseKey != null) {
+            create("release") {
+                storeFile = releaseKey
+                storePassword = System.getenv("TINTLOOM_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("TINTLOOM_KEY_ALIAS")
+                keyPassword = System.getenv("TINTLOOM_KEYSTORE_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("tube")
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("tube")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
