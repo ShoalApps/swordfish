@@ -558,7 +558,7 @@ fun CenterLoading(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier, extra: (@Composable () -> Unit)? = null) {
     Column(
         modifier.fillMaxWidth().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -572,7 +572,10 @@ fun ErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifi
             maxLines = 4,
             overflow = TextOverflow.Ellipsis,
         )
-        FilledTonalButton(onClick = onRetry) { Text("Try again") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = onRetry) { Text("Try again") }
+            extra?.invoke()
+        }
     }
 }
 

@@ -47,6 +47,7 @@ object NetworkInfo {
             cause.any { it is SSLException } -> "Couldn't make a secure connection. Check the date and time on your phone, then try again."
             msg.contains("age", true) && msg.contains("restrict", true) -> "This video is age-restricted."
             msg.contains("private", true) && msg.contains("video", true) -> "This video is private."
+            msg.contains("UNPLAYABLE") && msg.contains("not available", true) -> "YouTube only plays this video in its own apps."
             msg.contains("unavailable", true) || msg.contains("removed", true) -> "This video isn't available."
             msg.contains("members", true) && msg.contains("only", true) -> "This video is for channel members only."
             cause.any { it is IOException } -> "Couldn't reach YouTube. Try again."

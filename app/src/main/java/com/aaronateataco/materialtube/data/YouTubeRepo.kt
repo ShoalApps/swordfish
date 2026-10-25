@@ -68,7 +68,13 @@ class YouTubeRepo {
         synchronized(streamCache) {
             streamCache[id]?.let { (at, info) -> if (System.currentTimeMillis() - at < 2 * 3600_000L) return@withContext info }
         }
-        val info = StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=$id")
+        val info = try {
+            StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=$id")
+        } catch (e: Exception) {
+            // Made-for-kids videos: YouTube still serves them to its Kids app.
+            if (!KidsClient.shouldTry(e)) throw e
+            runCatching { KidsClient.stream(com.aaronateataco.materialtube.AppGraph.http, id) }.getOrElse { throw e }
+        }
         synchronized(streamCache) { streamCache[id] = System.currentTimeMillis() to info }
         info
     }

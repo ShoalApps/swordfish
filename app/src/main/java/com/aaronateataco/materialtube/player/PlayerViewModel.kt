@@ -48,6 +48,13 @@ class PlayerViewModel : ViewModel() {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+
+    /**
+     * YouTube refused the video to every client the app can use, even the Kids one (some
+     * made-for-kids videos), so the error offers to open it in YouTube's own app.
+     */
+    var onlyYouTubeCanPlay by mutableStateOf(false)
+        private set
     var segments by mutableStateOf<List<SbSegment>>(emptyList())
         private set
     var votes by mutableStateOf<RydVotes?>(null)
@@ -272,7 +279,7 @@ class PlayerViewModel : ViewModel() {
     private fun load(url: String, keepRecovered: Boolean = false) {
         loadJob?.cancel()
         if (!keepRecovered) recovered = false
-        info = null; error = null; segments = emptyList(); votes = null; rating = Rating.NONE
+        info = null; error = null; onlyYouTubeCanPlay = false; segments = emptyList(); votes = null; rating = Rating.NONE
         related = emptyList(); skipped = null; skippedIds.clear(); firstFrame = false
         comments = emptyList(); commentsNext = null; commentsError = null; replies.clear()
         captionTracks = emptyList(); captionTrack = null; cues = emptyList(); captionText = null
@@ -299,7 +306,8 @@ class PlayerViewModel : ViewModel() {
                 }
                 current = video
                 related = com.aaronateataco.materialtube.data.FeedFilter.apply(
-                    i.relatedItems.filterIsInstance<StreamInfoItem>().map { it.toVideo() },
+                    i.relatedItems.filterIsInstance<StreamInfoItem>().map { it.toVideo() }
+                        .ifEmpty { com.aaronateataco.materialtube.data.KidsClient.related[i.id].orEmpty() },
                 )
                 store.addHistory(video)
                 play(i, pendingStartMs)
@@ -311,6 +319,7 @@ class PlayerViewModel : ViewModel() {
             } catch (e: Exception) {
                 pendingStartMs = 0
                 error = NetworkInfo.friendlyError(e)
+                onlyYouTubeCanPlay = com.aaronateataco.materialtube.data.KidsClient.shouldTry(e)
             } finally {
                 loading = false
             }

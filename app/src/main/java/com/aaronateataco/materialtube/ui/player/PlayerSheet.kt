@@ -624,6 +624,27 @@ fun VideoSurface(vm: PlayerViewModel, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        // Errors sit on the video, where you're looking, with what you can do about them.
+        vm.error?.let { message ->
+            val context = LocalContext.current
+            Column(
+                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(message, color = Color.White, style = MaterialTheme.typography.bodyLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = vm::retry) { Text("Try again") }
+                    if (vm.onlyYouTubeCanPlay) {
+                        androidx.compose.material3.Button(onClick = {
+                            val id = vm.current?.id ?: return@Button
+                            vm.close()
+                            runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$id"))) }
+                        }) { Text("Open in YouTube") }
+                    }
+                }
+            }
+        }
         // Captions, YouTube style: white text on a dark box near the bottom.
         val caption = vm.captionText
         if (caption != null && vm.captionTrack != null) {
@@ -677,6 +698,15 @@ fun PlayerControls(
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Nothing to control while the video can't play; keep only the way out, clear of the error's buttons.
+    if (vm.error != null) {
+        Box(modifier.fillMaxSize()) {
+            IconButton(onClick = onCollapse, modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
+                Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.KeyboardArrowDown, "Minimise", tint = Color.White)
+            }
+        }
+        return
+    }
     var visible by remember { mutableStateOf(true) }
     var poke by remember { mutableIntStateOf(0) }
     var seekHint by remember { mutableStateOf<String?>(null) }
@@ -1258,7 +1288,8 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
             }
         }
         when {
-            vm.error != null -> item(key = "err") { ErrorState(vm.error!!, vm::retry) }
+            // Errors show on the video itself (VideoSurface).
+            vm.error != null -> Unit
             vm.loading -> item(key = "load") {
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                     LoadingIndicator(Modifier.size(56.dp))
