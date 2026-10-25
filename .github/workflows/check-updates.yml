@@ -24,7 +24,8 @@ jobs:
         run: ./gradlew assembleDebug assembleDebugAndroidTest testDebugUnitTest --stacktrace
 
       - name: Merge library update and publish
-        if: github.event.pull_request.user.login == 'dependabot[bot]'
+        # GitHub won't let this token change workflow files, so Actions-version bumps wait for a person.
+        if: github.event.pull_request.user.login == 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/github_actions')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
