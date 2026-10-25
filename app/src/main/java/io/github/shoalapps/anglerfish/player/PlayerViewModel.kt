@@ -190,7 +190,28 @@ class PlayerViewModel : ViewModel() {
         }
         when {
             s.loopVideo -> { player.seekTo(0); player.play() }
-            s.autoplayNext && !fullscreen && sheetVisible && current != null -> related.firstOrNull()?.let(::open)
+            s.autoplayNext && !fullscreen && sheetVisible && current != null -> autoplayNext()
+        }
+    }
+
+    /** A stream fetched while choosing what to autoplay, so opening it doesn't fetch it again. */
+    private var prefetched: Pair<String, StreamInfo>? = null
+
+    /**
+     * Plays the first suggestion that will actually play. Some (often kids videos) only play in
+     * YouTube's own apps; those are skipped quietly rather than ending the video on an error.
+     * If none of the first few play, it stays on the finished video.
+     */
+    private fun autoplayNext() {
+        val candidates = related.take(5)
+        viewModelScope.launch {
+            for (c in candidates) {
+                val i = runCatching { streamWithRetry(c.url) }.getOrNull() ?: continue
+                if (player.playbackState != Player.STATE_ENDED) return@launch // you picked something yourself
+                prefetched = c.url to i
+                open(c)
+                return@launch
+            }
         }
     }
 
@@ -297,7 +318,8 @@ class PlayerViewModel : ViewModel() {
             if (s.ryd) launch { votes = AppGraph.ryd.votes(videoId) }
             launch { loadComments(url) }
             try {
-                val i = streamWithRetry(url)
+                val i = prefetched?.takeIf { it.first == url }?.second ?: streamWithRetry(url)
+                prefetched = null
                 info = i
                 val video = i.toVideo().let { v ->
                     // keep the avatar/thumbnail we already had if the page lacks them
