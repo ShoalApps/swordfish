@@ -68,6 +68,9 @@ data class Settings(
     // Look
     val ambientMode: Boolean = true,
 
+    // Shown once: the Shorts tab points people to Tintloom Clips.
+    val clipsIntroSeen: Boolean = false,
+
     // Updates
     /** Check GitHub once a day for a newer release. */
     val autoUpdate: Boolean = true,

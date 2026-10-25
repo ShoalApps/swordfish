@@ -36,6 +36,16 @@ class NavigationTest : TubeTest() {
         compose.onNodeWithContentDescription("Choose feed").assertExists()
     }
 
+    @Test fun shortsIntroShowsOnceAndCanBeDismissed() {
+        AppGraph.store.updateSettings { it.copy(clipsIntroSeen = false) }
+        tab("Shorts").performClick()
+        waitForText("Short videos have their own app")
+        compose.onNodeWithText("Keep watching Shorts here").performClick()
+        compose.waitForIdle()
+        assertTrue(AppGraph.store.settings.value.clipsIntroSeen)
+        assertTrue(gone(hasText("Short videos have their own app")))
+    }
+
     @Test fun searchOpensAndGoesBack() {
         compose.onNodeWithContentDescription("Search").performClick()
         waitForText("Search YouTube")

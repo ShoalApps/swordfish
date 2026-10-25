@@ -62,6 +62,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -453,8 +454,19 @@ fun ShortsScreen(onChannel: (String) -> Unit, onExit: () -> Unit, vm: ShortsView
             vm.setActive(false)
         }
     }
-    val layout = AppGraph.store.settings.collectAsState().value.shortsLayout
+    val settingsNow = AppGraph.store.settings.collectAsState().value
+    val layout = settingsNow.shortsLayout
     var commentsFor by remember { mutableStateOf<VideoItem?>(null) }
+    // First visit: let people know short videos have their own Tintloom app. Shorts wait while it shows.
+    if (!settingsNow.clipsIntroSeen) {
+        ClipsIntro(
+            onShown = { vm.setActive(false) },
+            onDone = {
+                AppGraph.store.updateSettings { it.copy(clipsIntroSeen = true) }
+                vm.setActive(true)
+            },
+        )
+    }
 
     // White status bar icons over the video, whatever the app theme; put back on the way out.
     val view = androidx.compose.ui.platform.LocalView.current
@@ -519,6 +531,51 @@ fun ShortsScreen(onChannel: (String) -> Unit, onExit: () -> Unit, vm: ShortsView
         }
     }
     commentsFor?.let { v -> ShortComments(v) { commentsFor = null } }
+}
+
+/** One-time sheet about Tintloom Clips, the dedicated app for short videos. */
+@Composable
+private fun ClipsIntro(onShown: () -> Unit, onDone: () -> Unit) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { onShown() }
+    ModalBottomSheet(onDismissRequest = onDone, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ShapeIcon(
+                Icons.Rounded.VideoLibrary,
+                112.dp,
+                MaterialShapes.Cookie12Sided,
+                MaterialTheme.colorScheme.tertiaryContainer,
+                MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Text(
+                "Short videos have their own app",
+                style = MaterialTheme.typography.headlineSmallEmphasized,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 20.dp),
+            )
+            Text(
+                "Tintloom Clips brings YouTube Shorts, TikTok and Reels together in one Material You feed, " +
+                    "with the same daily limits and layouts. Shorts will always keep working here too.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+            )
+            Button(
+                onClick = {
+                    com.aaronateataco.materialtube.ui.components.openExternal(context, "https://tintloom.github.io/#apps")
+                    onDone()
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) { Text("Find out about Tintloom Clips") }
+            androidx.compose.material3.TextButton(onClick = onDone, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Keep watching Shorts here")
+            }
+        }
+    }
 }
 
 /** White text with a soft shadow, readable on any video without darkening it. */

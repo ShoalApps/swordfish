@@ -31,7 +31,8 @@ abstract class TubeTest {
         object : org.junit.runners.model.Statement() {
             override fun evaluate() {
                 val store = AppGraph.store
-                store.updateSettings { Settings() }
+                // Fresh settings, but past the one-time Clips intro, which has its own test.
+                store.updateSettings { Settings(clipsIntroSeen = true) }
                 store.clearHistory()
                 store.searches.value.forEach(store::removeSearch)
                 base.evaluate()
