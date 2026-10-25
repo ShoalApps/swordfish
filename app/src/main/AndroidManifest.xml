@@ -31,6 +31,13 @@
         <package android:name="com.aaronateataco.materialtube" />
     </queries>
 
+    <!-- Accounts from Swordfish Manager (signature-protected). -->
+    <uses-permission android:name="io.github.swordfishapps.permission.ACCOUNTS" />
+    <queries>
+        <provider android:authorities="io.github.swordfishapps.manager.accounts" />
+        <provider android:authorities="io.github.swordfishapps.manager.debug.accounts" />
+    </queries>
+
     <application
         android:name=".TubeApp"
         android:label="@string/app_name"

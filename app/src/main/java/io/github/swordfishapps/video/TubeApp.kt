@@ -85,6 +85,19 @@ object AppGraph {
     }
 
     /** After signing in: load the profile and pull in YouTube subscriptions. */
+    /** Takes up accounts signed into in Swordfish Manager, when they've changed. */
+    fun pullManagerAccounts() {
+        val s = ManagerAccounts.read(app) ?: return
+        if (!ManagerAccounts.changed(app, s)) return
+        val yt = s.cookies["youtube"]
+        if (yt != null) {
+            ManagerAccounts.applyCookies("https://www.youtube.com", yt)
+            store.setCookie(yt)
+            store.setPageId(s.youtubePageId)
+            syncAccount()
+        }
+    }
+
     fun syncAccount(replaceSubs: Boolean = false) {
         if (!store.signedIn) return
         scope.launch {
