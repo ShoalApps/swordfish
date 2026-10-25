@@ -222,6 +222,10 @@ fun SettingsScreen(
             row { sh -> Toggle("Return YouTube Dislike", "Show dislike counts", s.ryd, sh) { v -> update { it.copy(ryd = v) } } }
         }
 
+        group("Updates") {
+            row { sh -> Toggle("Check for updates", "Look for a new version on GitHub once a day", s.autoUpdate, sh) { v -> update { it.copy(autoUpdate = v) } } }
+        }
+
         group("More") {
             if (s.developerMode) row { sh -> Link("Developer settings", "Advanced tweaks, filters and debugging", sh, onClick = onDeveloper) }
             row { sh -> Link("About Tintloom Video", "Version, credits and licence", sh, onClick = onAbout) }
@@ -426,6 +430,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            row { sh -> Link("Check for updates", "Ask GitHub whether there's a newer version", sh) { AppGraph.checkForUpdate(force = true) } }
             row { sh -> Link("Source code", "github.com/Tintloom/video", sh) { openExternal(context, "https://github.com/Tintloom/video") } }
             row { sh -> Link("Website", "tintloom.github.io", sh) { openExternal(context, "https://tintloom.github.io") } }
         }

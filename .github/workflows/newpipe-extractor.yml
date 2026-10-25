@@ -1,0 +1,55 @@
+name: Follow NewPipeExtractor
+
+# YouTube changes often. The NewPipe team keeps NewPipeExtractor working and pins the version
+# their app ships; every day this follows that pin, builds and tests, and releases if it passes.
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the version NewPipe ships
+        id: pin
+        run: |
+          shipped=$(curl -sf https://raw.githubusercontent.com/TeamNewPipe/NewPipe/dev/gradle/libs.versions.toml \
+            | sed -n 's/^teamnewpipe-newpipe-extractor = "\([^"]*\)".*/\1/p')
+          ours=$(sed -n 's/.*NewPipeExtractor:\([^"]*\)".*/\1/p' app/build.gradle.kts)
+          echo "NewPipe ships $shipped; we use $ours"
+          if [ -z "$shipped" ] || [ "$shipped" = "$ours" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          sed -i "s/NewPipeExtractor:$ours/NewPipeExtractor:$shipped/" app/build.gradle.kts
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$shipped" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        if: steps.pin.outputs.changed == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.pin.outputs.changed == 'true'
+
+      - name: Build and run unit tests
+        if: steps.pin.outputs.changed == 'true'
+        run: ./gradlew assembleDebug assembleDebugAndroidTest testDebugUnitTest --stacktrace
+
+      - name: Commit and publish
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Follow NewPipeExtractor ${{ steps.pin.outputs.version }}
+
+          The version the NewPipe app ships, for the latest YouTube fixes."
+          git push
+          gh workflow run build.yml --ref main

@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         crashReport.value = CrashReporter.take(this)
+        AppGraph.checkForUpdate()
         handleIntent(intent)
 
         // Binds the background service so playback survives leaving the app.

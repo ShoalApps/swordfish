@@ -67,6 +67,10 @@ data class Settings(
     val sanitizeShareLinks: Boolean = true,
     // Look
     val ambientMode: Boolean = true,
+
+    // Updates
+    /** Check GitHub once a day for a newer release. */
+    val autoUpdate: Boolean = true,
 )
 
 /** Topics for the Learning feed: key, label, search phrases. */
@@ -183,6 +187,11 @@ class Store(context: Context) {
         val base = shortsMsToday()
         prefs.edit().putString("shortsDay", today).putLong("shortsMs", base + ms).apply()
     }
+
+    /** When the app last asked GitHub for a newer release (epoch millis). */
+    var lastUpdateCheck: Long
+        get() = prefs.getLong("lastUpdateCheck", 0)
+        set(value) = prefs.edit().putLong("lastUpdateCheck", value).apply()
 
     fun addHistory(item: VideoItem) {
         _history.update { list -> (listOf(item) + list.filterNot { it.id == item.id }).take(300) }

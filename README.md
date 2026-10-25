@@ -15,6 +15,13 @@ Open the **Releases** page on your phone and install `TintloomVideo.apk` from th
 
 Every build is also run on an Android emulator; screenshots and logs land on the `ci-shots` branch.
 
+## Staying up to date
+
+- The app checks GitHub once a day and offers new releases; Android asks before installing.
+- Dependabot proposes library updates weekly; each is built and tested and only merged if it passes.
+- Every day a workflow follows the NewPipeExtractor version the NewPipe app ships, so YouTube fixes
+  arrive without anyone building anything by hand.
+
 ## Tests
 
 - `./gradlew testDebugUnitTest`: unit tests for formatting, captions, links, stream picking,

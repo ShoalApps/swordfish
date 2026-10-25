@@ -18,6 +18,8 @@ import com.aaronateataco.materialtube.data.YouTubeAccount
 import com.aaronateataco.materialtube.data.Sub
 import com.aaronateataco.materialtube.data.channelIdOf
 import kotlinx.coroutines.CoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -98,6 +100,47 @@ object AppGraph {
         store.setPageId(choice.pageId)
         store.setAccount(com.aaronateataco.materialtube.data.Account(choice.name, choice.handle, choice.avatar))
         syncAccount(replaceSubs = true)
+    }
+
+    /** A newer release found on GitHub, its download progress, and any message about it. */
+    object Update {
+        var available by androidx.compose.runtime.mutableStateOf<com.aaronateataco.materialtube.data.Updater.Release?>(null)
+        var progress by androidx.compose.runtime.mutableStateOf<Float?>(null)
+        var message by androidx.compose.runtime.mutableStateOf<String?>(null)
+    }
+
+    /** Looks for a newer release: at most once a day automatically, or right away when asked. */
+    fun checkForUpdate(force: Boolean = false) {
+        val U = com.aaronateataco.materialtube.data.Updater
+        if (!U.canUpdate(app)) {
+            if (force) Update.message = "Development builds don't update themselves"
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (!force && (!store.settings.value.autoUpdate || now - store.lastUpdateCheck < 20 * 3600_000L)) return
+        scope.launch {
+            val latest = runCatching { U.latest(http) }.getOrNull()
+            if (latest != null) store.lastUpdateCheck = now
+            when {
+                latest == null -> if (force) Update.message = "Couldn't reach GitHub. Try again later."
+                latest.build > U.currentBuild(app) -> Update.available = latest
+                force -> Update.message = "You're on the latest version"
+            }
+        }
+    }
+
+    /** Downloads the update and hands it to Android's installer, which asks the user to confirm. */
+    fun installUpdate() {
+        val release = Update.available ?: return
+        Update.available = null
+        Update.progress = 0f
+        scope.launch {
+            runCatching {
+                val apk = com.aaronateataco.materialtube.data.Updater.download(http, release, app.cacheDir) { Update.progress = it }
+                kotlinx.coroutines.withContext(Dispatchers.Main) { com.aaronateataco.materialtube.data.Updater.install(app, apk) }
+            }.onFailure { Update.message = "Couldn't download the update. Try again later." }
+            Update.progress = null
+        }
     }
 
     /** True while the phone has a working internet connection; screens use it to recover by themselves. */

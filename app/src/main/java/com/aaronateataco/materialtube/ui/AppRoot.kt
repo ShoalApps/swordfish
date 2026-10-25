@@ -51,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Modifier
@@ -94,6 +95,49 @@ private val tabs = listOf(
 )
 
 private fun isTab(route: String?) = tabs.any { it.route == route }
+
+/** "Update available" snackbar, and a wavy progress bar while the new version downloads. */
+@Composable
+private fun UpdatePrompt(modifier: Modifier) {
+    val host = remember { androidx.compose.material3.SnackbarHostState() }
+    val available = AppGraph.Update.available
+    val message = AppGraph.Update.message
+    LaunchedEffect(available) {
+        if (available == null) return@LaunchedEffect
+        val result = host.showSnackbar(
+            "A new version of Tintloom Video is ready",
+            actionLabel = "Update",
+            withDismissAction = true,
+            duration = androidx.compose.material3.SnackbarDuration.Indefinite,
+        )
+        if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) AppGraph.installUpdate()
+        else AppGraph.Update.available = null
+    }
+    LaunchedEffect(message) {
+        if (message == null) return@LaunchedEffect
+        host.showSnackbar(message)
+        AppGraph.Update.message = null
+    }
+    Box(modifier.padding(horizontal = 12.dp)) {
+        androidx.compose.material3.SnackbarHost(host)
+        AppGraph.Update.progress?.let { p ->
+            androidx.compose.material3.Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+            ) {
+                androidx.compose.foundation.layout.Column(Modifier.padding(16.dp).widthIn(max = 480.dp)) {
+                    Text("Downloading update… ${(p * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.material3.LinearWavyProgressIndicator(
+                        progress = { p },
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        color = MaterialTheme.colorScheme.inversePrimary,
+                    )
+                }
+            }
+        }
+    }
+}
 
 /** A tab's icon; the You tab shows your profile picture once signed in, like the official app. */
 @Composable
@@ -308,6 +352,8 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
         if (vm.sheetVisible && !inPip && !miniHidden) {
             PlayerSheet(vm, bottomBarVisible = showBar && !useRail, onChannel = openChannel, startInset = if (useRail) 96.dp else 0.dp)
         }
+
+        UpdatePrompt(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(bottom = if (showBar && !useRail) 80.dp + navInset else navInset + 16.dp))
 
         IntroOverlay()
 
