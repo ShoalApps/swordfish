@@ -132,8 +132,15 @@ object StreamPicker {
     private val resolutionHeight = Regex("""^(\d{3,4})p""")
 
     /** Pixel height, read from the resolution label ("1080p60") when YouTube didn't send one. */
-    fun heightOf(v: VideoStream): Int =
-        v.height.takeIf { it > 0 } ?: resolutionHeight.find(v.getResolution().orEmpty())?.groupValues?.get(1)?.toInt() ?: 0
+    fun heightOf(v: VideoStream): Int = qualityOf(v.getResolution(), v.width, v.height)
+
+    /**
+     * The quality number YouTube shows ("1080p"), which is the frame's short side: a vertical
+     * 1080×1920 Short is 1080p, not 1920p. Using the raw height picked 480p for 1080p Shorts.
+     */
+    fun qualityOf(resolution: String?, width: Int, height: Int): Int =
+        resolutionHeight.find(resolution.orEmpty())?.groupValues?.get(1)?.toInt()
+            ?: if (width > 0 && height > 0) minOf(width, height) else height.coerceAtLeast(0)
 
     fun pick(info: StreamInfo, maxHeight: Int): Playable {
         val isLive = info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM

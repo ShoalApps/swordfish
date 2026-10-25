@@ -84,6 +84,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
@@ -343,7 +344,7 @@ class ShortsViewModel : ViewModel() {
             slotJobs[slot] = viewModelScope.launch {
                 try {
                     val inf = info(id)
-                    val src = StreamPicker.buildSource(StreamPicker.pick(inf, 1080), inf)
+                    val src = StreamPicker.buildSource(StreamPicker.pick(inf, Int.MAX_VALUE), inf) // Shorts are short: always the best quality
                     if (src == null) { markFailed(id); return@launch }
                     if (slotId[slot] != id) return@launch
                     pool[slot].setMediaSource(src)
@@ -641,7 +642,7 @@ private fun ShortPage(
     }
     val onShare = { shareVideo(context, FeedFilter.shareUrl(item.id, item.url)) }
 
-    Box(
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .pointerInput(item.id) {
@@ -655,14 +656,28 @@ private fun ShortPage(
                 )
             },
     ) {
-        AsyncImage(model = item.thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        if (player != null) {
-            val isReady = vm.ready[item.id] == true
-            BoxWithConstraints(Modifier.fillMaxSize().clipToBounds(), contentAlignment = Alignment.Center) {
-                val videoRatio = vm.aspects[item.id] ?: (9f / 16f)
-                val boxRatio = maxWidth / maxHeight
-                val w = if (videoRatio > boxRatio) maxHeight * videoRatio else maxWidth
-                val h = if (videoRatio > boxRatio) maxHeight else maxWidth / videoRatio
+        val videoRatio = vm.aspects[item.id] ?: (9f / 16f)
+        val boxRatio = maxWidth / maxHeight
+        // Fill the screen when that trims only a little (phones); otherwise show the whole video,
+        // as on tablets and in landscape, where filling would blow up a thin middle slice.
+        val cropped = if (videoRatio > boxRatio) 1f - boxRatio / videoRatio else 1f - videoRatio / boxRatio
+        val fit = cropped > 0.2f
+        val w: androidx.compose.ui.unit.Dp
+        val h: androidx.compose.ui.unit.Dp
+        if (fit == (videoRatio > boxRatio)) { w = maxWidth; h = maxWidth / videoRatio } else { w = maxHeight * videoRatio; h = maxHeight }
+        Box(Modifier.fillMaxSize().clipToBounds(), contentAlignment = Alignment.Center) {
+            if (fit) {
+                // A blurred, dimmed copy of the thumbnail fills the sides.
+                AsyncImage(
+                    model = item.thumbnail,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().blur(48.dp).graphicsLayer { alpha = 0.55f },
+                )
+            }
+            AsyncImage(model = item.thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.requiredSize(w, h))
+            if (player != null) {
+                val isReady = vm.ready[item.id] == true
                 key(vm.slotOf(item.id)) {
                     AndroidView(
                         factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } },
@@ -700,8 +715,15 @@ private fun ShortPage(
         }
 
         // Details (bottom-left) and actions (right), lined up along one baseline.
+        // When the whole video is shown (tablets), they hug the video instead of the screen's edges.
         Row(
-            Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 14.dp, end = 4.dp, bottom = 18.dp),
+            Modifier.align(Alignment.BottomCenter)
+                .then(
+                    // Room for the buttons on each side keeps the row centred on the video: details
+                    // start at the video's left edge, buttons sit just outside its right edge.
+                    if (fit && w + 144.dp < maxWidth) Modifier.width(w + 144.dp).padding(start = 72.dp + 14.dp, end = 4.dp, bottom = 18.dp)
+                    else Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, bottom = 18.dp),
+                ),
             verticalAlignment = Alignment.Bottom,
         ) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
