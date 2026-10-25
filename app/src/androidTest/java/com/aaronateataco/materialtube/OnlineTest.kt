@@ -128,6 +128,8 @@ class OnlineTest : TubeTest() {
         tab("Shorts").performClick()
         // Some Shorts have comments turned off or slow to load; move on to the next one if so.
         val found = (1..3).any {
+            // If Back left the Shorts tab rather than just the sheet, go back to it.
+            if (runCatching { compose.waitUntil(5_000) { !gone(hasContentDescription("Comments")) } }.isFailure) tab("Shorts").performClick()
             compose.waitUntil(60_000) { !gone(hasContentDescription("Comments")) }
             compose.onAllNodes(hasContentDescription("Comments")).onFirst().performClick()
             val ok = runCatching { compose.waitUntil(30_000) { !gone(hasContentDescription("Like comment")) } }.isSuccess
