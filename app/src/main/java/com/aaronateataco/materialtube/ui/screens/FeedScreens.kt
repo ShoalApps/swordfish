@@ -512,6 +512,7 @@ class SubsViewModel : ViewModel() {
 fun SubscriptionsScreen(
     onVideo: (VideoItem) -> Unit,
     onChannel: (String) -> Unit,
+    onShorts: (VideoItem) -> Unit = {},
     vm: SubsViewModel = viewModel(),
 ) {
     val subs by AppGraph.store.subs.collectAsState()
@@ -578,8 +579,16 @@ fun SubscriptionsScreen(
                 else if (vm.items.isEmpty()) item(key = "empty") {
                     EmptyState(Icons.Rounded.Subscriptions, "No new videos", "Pull down to check again.")
                 }
-                else videoGrid(vm.items, columns) { v, _, mod ->
-                    VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = mod, inGrid = columns > 1)
+                else {
+                    // Shorts go in their own row, as on Home, rather than as tall thumbnails in the grid.
+                    val (shorts, videos) = vm.items.partition { it.isShort }
+                    val s = AppGraph.store.settings.value
+                    if (shorts.isNotEmpty() && !s.shortsDisabled && !s.hideShortsShelf) {
+                        item(key = "shorts") { ShortsShelf(shorts.take(20), onShorts) }
+                    }
+                    videoGrid(videos, columns) { v, _, mod ->
+                        VideoCard(v, onClick = { onVideo(v) }, onChannel = onChannel, modifier = mod, inGrid = columns > 1)
+                    }
                 }
             }
         }

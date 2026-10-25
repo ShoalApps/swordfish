@@ -269,7 +269,7 @@ fun DeveloperSettingsScreen(onBack: () -> Unit) {
         group("Feed filters") {
             row { sh -> Toggle("Hide live streams", null, s.hideLive, sh) { v -> update { it.copy(hideLive = v) } } }
             row { sh -> Toggle("Hide watched videos", "Anything in your history", s.hideWatched, sh) { v -> update { it.copy(hideWatched = v) } } }
-            row { sh -> Toggle("Hide Shorts shelf on Home", null, s.hideShortsShelf, sh) { v -> update { it.copy(hideShortsShelf = v) } } }
+            row { sh -> Toggle("Hide Shorts shelves", null, s.hideShortsShelf, sh) { v -> update { it.copy(hideShortsShelf = v) } } }
             row { sh -> Link("Keyword filter", s.keywordFilter.ifBlank { "Hide videos whose title or channel contains these words" }, sh) { keywordDialog = true } }
         }
 

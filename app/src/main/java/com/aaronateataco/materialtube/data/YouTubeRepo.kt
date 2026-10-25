@@ -140,7 +140,8 @@ class YouTubeRepo {
                         val extractor = yt.getFeedExtractor(sub.url) ?: return@runCatching emptyList<VideoItem>()
                         extractor.fetchPage()
                         extractor.initialPage.items.filterIsInstance<StreamInfoItem>().map {
-                            it.toVideo().copy(channelAvatar = sub.avatar)
+                            // Channel RSS feeds link Shorts as /shorts/ID; nothing else marks them.
+                            it.toVideo().let { v -> v.copy(channelAvatar = sub.avatar, isShort = v.isShort || v.url.contains("/shorts/")) }
                         }
                     }.getOrDefault(emptyList())
                 }

@@ -225,6 +225,11 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
         if (vm.sheetVisible) vm.collapse()
         nav.navigate("channel/${Uri.encode(url)}")
     }
+    val openShort: (VideoItem) -> Unit = { short ->
+        com.aaronateataco.materialtube.ui.screens.ShortsLaunch.start = short
+        vm.collapse()
+        goTab("shorts")
+    }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
       Row(Modifier.fillMaxSize()) {
@@ -286,18 +291,14 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
                             onChannel = openChannel,
                             onSearch = { nav.navigate("search") },
                             onNotifications = { goTab("subs") },
-                            onShorts = { short ->
-                                com.aaronateataco.materialtube.ui.screens.ShortsLaunch.start = short
-                                vm.collapse()
-                                goTab("shorts")
-                            },
+                            onShorts = openShort,
                         )
                     }
                     composable("shorts") {
                         ShortsScreen(onChannel = openChannel, onExit = { goTab("home") })
                     }
                     composable("subs") {
-                        SubscriptionsScreen(onVideo = openVideo, onChannel = openChannel)
+                        SubscriptionsScreen(onVideo = openVideo, onChannel = openChannel, onShorts = openShort)
                     }
                     composable("you") {
                         YouScreen(
