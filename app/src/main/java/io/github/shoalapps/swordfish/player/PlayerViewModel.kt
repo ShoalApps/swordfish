@@ -138,6 +138,13 @@ class PlayerViewModel : ViewModel() {
             }
         }
         override fun onRenderedFirstFrame() { firstFrame = true }
+        override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+            if (reason != Player.DISCONTINUITY_REASON_SEEK) return
+            // Going back into a segment means you want to watch it: don't skip it, and load it.
+            val pos = new.positionMs / 1000.0
+            segments.firstOrNull { pos >= it.startSec && pos < it.endSec - 0.4 }?.let { skippedIds += it.uuid }
+            planSkips()
+        }
         override fun onPlayerError(e: PlaybackException) = onPlaybackFailed(e)
     }
 
@@ -145,8 +152,8 @@ class PlayerViewModel : ViewModel() {
         player.addListener(listener)
         viewModelScope.launch {
             while (true) {
-                // Nothing to track while no video is open.
-                if (sheetVisible) tick()
+                // Nothing to track while no video is open (but keep skipping while it plays in the background).
+                if (sheetVisible || player.playWhenReady) tick()
                 delay(200)
             }
         }
@@ -155,6 +162,10 @@ class PlayerViewModel : ViewModel() {
     private fun tick() {
         positionMs = player.currentPosition
         bufferedMs = player.bufferedPosition
+        if (io.github.shoalapps.swordfish.BuildConfig.DEBUG && positionMs / 1000 != lastLoggedSec) {
+            lastLoggedSec = positionMs / 1000
+            android.util.Log.d("SkipAware", "at ${positionMs / 1000.0}s buffered to ${bufferedMs / 1000.0}s, gate ${SkipAware.gateUs.let { if (it == Long.MAX_VALUE) "none" else (it / 1_000_000.0).toString() }}s, state ${player.playbackState}")
+        }
         if (player.duration > 0) durationMs = player.duration
         if (cues.isNotEmpty()) {
             val text = cues.lastOrNull { positionMs in it.startMs until it.endMs }?.text
@@ -168,13 +179,23 @@ class PlayerViewModel : ViewModel() {
             player.pause()
             sleepMinutes = 0
         }
-        if (!player.isPlaying) return
+        // While wanting to play, not just playing: loading stops at a segment, so the player may be
+        // waiting there for the skip.
+        if (!player.playWhenReady) return
         val pos = positionMs / 1000.0
         val seg = segments.firstOrNull {
             it.uuid !in skippedIds && pos >= it.startSec && pos < it.endSec - 0.4
         } ?: return
         skippedIds += seg.uuid
-        player.seekTo((seg.endSec * 1000).toLong())
+        val dur = player.duration
+        if (dur > 0 && seg.endSec * 1000 >= dur - 1500) {
+            // It runs to the end (an outro): that's the end of the video, so finish as if it ended,
+            // rather than jumping past the last frame (which YouTube has nothing to send for).
+            player.pause()
+            endedAtOutro = true
+            onEnded()
+        } else player.seekTo((seg.endSec * 1000).toLong())
+        planSkips()
         skipped = seg
         viewModelScope.launch {
             delay(4000)
@@ -207,7 +228,8 @@ class PlayerViewModel : ViewModel() {
         viewModelScope.launch {
             for (c in candidates) {
                 val i = runCatching { streamWithRetry(c.url) }.getOrNull() ?: continue
-                if (player.playbackState != Player.STATE_ENDED) return@launch // you picked something yourself
+                // You picked something yourself (or pressed play again) while this was being chosen.
+                if (player.playbackState != Player.STATE_ENDED && !(endedAtOutro && !player.playWhenReady)) return@launch
                 prefetched = c.url to i
                 open(c)
                 return@launch
@@ -311,11 +333,12 @@ class PlayerViewModel : ViewModel() {
         loading = true
         player.stop()
         player.clearMediaItems()
+        SkipAware.clear(); playing = null; endedAtOutro = false
         val videoId = videoIdOf(url)
         loadJob = viewModelScope.launch {
             // These don't depend on the stream, so start them straight away.
             val s = store.settings.value
-            if (s.sponsorBlock) launch { segments = AppGraph.sponsorBlock.segments(videoId, s.sbSkip) }
+            if (s.sponsorBlock) launch { segments = AppGraph.sponsorBlock.segments(videoId, s.sbSkip); planSkips() }
             if (s.ryd) launch { votes = AppGraph.ryd.votes(videoId) }
             launch { loadComments(url) }
             try {
@@ -372,10 +395,36 @@ class PlayerViewModel : ViewModel() {
             error = "No playable streams found for this video"
             return
         }
+        playing = choice
         player.setMediaSource(source, startMs)
         player.setPlaybackSpeed(speed)
         player.prepare()
         player.play()
+        planSkips()
+    }
+
+    private var lastLoggedSec = -1L
+
+    /** The video "ended" by skipping an outro that runs to the end (it's paused there, not ended). */
+    private var endedAtOutro = false
+
+    /** The streams playing now, for fetching ahead past segments. */
+    private var playing: Playable? = null
+
+    /**
+     * Tells the loader about the next segment SponsorBlock will skip: stop at its start, fetch what
+     * plays after it. Segments you've gone back into (or already skipped) are loaded normally.
+     */
+    private fun planSkips() {
+        val choice = playing
+        val pos = player.currentPosition
+        val next = segments.filter { it.uuid !in skippedIds && it.endSec * 1000 > pos + 500 }.minByOrNull { it.startSec }
+        if (choice == null || choice.hls != null || next == null) { SkipAware.clear(); return }
+        val streams = listOfNotNull<org.schabi.newpipe.extractor.stream.Stream>(choice.video, choice.audio)
+        val total = info?.duration?.times(1000) ?: durationMs
+        // A segment running to the end has nothing after it to fetch; just don't load it.
+        val toEnd = total > 0 && next.endSec * 1000 >= total - 1500
+        SkipAware.plan((next.startSec * 1000).toLong(), if (toEnd) -1 else (next.endSec * 1000).toLong(), total, if (toEnd) emptyList() else streams, next.uuid + "@" + (choice.video?.content?.hashCode() ?: 0))
     }
 
     var commentsError by mutableStateOf<String?>(null)

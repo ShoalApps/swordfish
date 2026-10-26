@@ -50,10 +50,13 @@ object PlayerHolder {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
+            // Doesn't download what SponsorBlock will skip (see SkipAware).
+            .setLoadControl(SkipAware.loadControl())
             .build()
     }
 
-    val dataSourceFactory: DataSource.Factory by lazy { YtDataSource.Factory() }
+    /** YouTube's servers, read through the cache that holds what plays after each skipped segment. */
+    val dataSourceFactory: DataSource.Factory by lazy { SkipAware.playbackFactory(YtDataSource.Factory()) }
 }
 
 /**
@@ -194,7 +197,9 @@ object StreamPicker {
         }
 
         val video = p.video ?: return null
-        val progressive = ProgressiveMediaSource.Factory(factory)
+        // The loader asks whether to carry on every 128 KB (rather than every megabyte), so it
+        // stops close to a SponsorBlock segment even on low-bitrate streams.
+        val progressive = ProgressiveMediaSource.Factory(factory).setContinueLoadingCheckIntervalBytes(128 * 1024)
         val videoSource = progressive.createMediaSource(
             MediaItem.Builder().setUri(video.content).setMediaId(info.id).setMediaMetadata(metadata).build(),
         )
