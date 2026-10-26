@@ -23,7 +23,7 @@ function publish() {
     }
 }
 
-window.__swordfishPad = (buttons, axes) => {
+window.__pufferfishPad = (buttons, axes) => {
     pad.connected = true
     pad.timestamp = performance.now()
     for (let i = 0; i < values.length; i++) {
@@ -34,7 +34,7 @@ window.__swordfishPad = (buttons, axes) => {
     pad.axes = axes.slice(0, 4)
     publish()
 }
-window.__swordfishPadGone = () => { pad.connected = false }
+window.__pufferfishPadGone = () => { pad.connected = false }
 
 navigator.getGamepads = () => {
     if (!pad.connected) return [null, null, null, null]

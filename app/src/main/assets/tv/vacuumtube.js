@@ -1,4 +1,4 @@
-/* Anglerfish TV mode. Includes VacuumTube 2.0.1 (https://github.com/shy1132/VacuumTube), MIT License, Copyright (c) 2025-2026 shy. */
+/* Swordfish TV mode. Includes VacuumTube 2.0.1 (https://github.com/shy1132/VacuumTube), MIT License, Copyright (c) 2025-2026 shy. */
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __commonJS = (cb, mod) => function __require() {
@@ -12,7 +12,7 @@
         try {
           window.trustedTypes.createPolicy("default", { createHTML: (s) => s, createScript: (s) => s, createScriptURL: (s) => s });
         } catch (err) {
-          console.error("[swordfish] could not create the default Trusted Types policy", err);
+          console.error("[pufferfish] could not create the default Trusted Types policy", err);
         }
       }
     }
@@ -38,7 +38,7 @@
           pad.buttons[i] = { pressed: v > 0.5, touched: v > 0, value: v };
         }
       }
-      window.__swordfishPad = (buttons, axes) => {
+      window.__pufferfishPad = (buttons, axes) => {
         pad.connected = true;
         pad.timestamp = performance.now();
         for (let i = 0; i < values.length; i++) {
@@ -49,7 +49,7 @@
         pad.axes = axes.slice(0, 4);
         publish();
       };
-      window.__swordfishPadGone = () => {
+      window.__pufferfishPadGone = () => {
         pad.connected = false;
       };
       navigator.getGamepads = () => {
@@ -322,18 +322,18 @@
   var require_electron = __commonJS({
     "shims/electron.js"(exports, module) {
       var defaults = require_vt_config_defaults();
-      var bridge = window.SwordfishTV;
+      var bridge = window.PufferfishTV;
       var listeners = {};
       function emit(channel, ...args) {
         for (const fn of listeners[channel] || []) {
           try {
             fn({}, ...args);
           } catch (err) {
-            console.error("[swordfish] listener failed", channel, err);
+            console.error("[pufferfish] listener failed", channel, err);
           }
         }
       }
-      window.__swordfishEmit = emit;
+      window.__pufferfishEmit = emit;
       function readConfig() {
         let stored = {};
         try {
@@ -356,7 +356,7 @@
         latestVersion: "",
         platform: "android",
         arch: "arm64",
-        installationType: "swordfish",
+        installationType: "pufferfish",
         canAutoUpdate: false,
         progress: null
       });
@@ -373,9 +373,9 @@
         "check-for-updates": about,
         "install-update": () => {
         },
-        "open-update-download": () => open("https://github.com/ShoalApps/anglerfish/releases/latest"),
+        "open-update-download": () => open("https://github.com/ShoalApps/swordfish/releases/latest"),
         "open-project-page": () => open("https://github.com/shy1132/VacuumTube"),
-        "open-release-page": () => open("https://github.com/ShoalApps/anglerfish/releases/latest"),
+        "open-release-page": () => open("https://github.com/ShoalApps/swordfish/releases/latest"),
         "open-userstyles-folder": () => {
         },
         "request-microphone-permission": () => false

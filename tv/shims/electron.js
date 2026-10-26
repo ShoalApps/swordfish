@@ -1,16 +1,16 @@
-// Stands in for Electron inside Android's WebView: the "main process" is Anglerfish, reached
-// through the SwordfishTV bridge (TvBridge.kt). Only what VacuumTube's preload modules use.
+// Stands in for Electron inside Android's WebView: the "main process" is Swordfish, reached
+// through the PufferfishTV bridge (TvBridge.kt). Only what VacuumTube's preload modules use.
 const defaults = require('vt:config-defaults')
 
-const bridge = window.SwordfishTV
+const bridge = window.PufferfishTV
 const listeners = {}
 
 function emit(channel, ...args) {
     for (const fn of listeners[channel] || []) {
-        try { fn({}, ...args) } catch (err) { console.error('[swordfish] listener failed', channel, err) }
+        try { fn({}, ...args) } catch (err) { console.error('[pufferfish] listener failed', channel, err) }
     }
 }
-window.__swordfishEmit = emit // the app calls this for focus/blur
+window.__pufferfishEmit = emit // the app calls this for focus/blur
 
 function readConfig() {
     let stored = {}
@@ -28,7 +28,7 @@ const about = () => ({
     latestVersion: '',
     platform: 'android',
     arch: 'arm64',
-    installationType: 'swordfish',
+    installationType: 'pufferfish',
     canAutoUpdate: false,
     progress: null,
 })
@@ -43,9 +43,9 @@ const handlers = {
     'get-about-info': about,
     'check-for-updates': about,
     'install-update': () => {},
-    'open-update-download': () => open('https://github.com/ShoalApps/anglerfish/releases/latest'),
+    'open-update-download': () => open('https://github.com/ShoalApps/swordfish/releases/latest'),
     'open-project-page': () => open('https://github.com/shy1132/VacuumTube'),
-    'open-release-page': () => open('https://github.com/ShoalApps/anglerfish/releases/latest'),
+    'open-release-page': () => open('https://github.com/ShoalApps/swordfish/releases/latest'),
     'open-userstyles-folder': () => {},
     'request-microphone-permission': () => false,
 }

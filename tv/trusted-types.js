@@ -5,6 +5,6 @@ if (window.trustedTypes && window.trustedTypes.createPolicy && !window.trustedTy
     try {
         window.trustedTypes.createPolicy('default', { createHTML: (s) => s, createScript: (s) => s, createScriptURL: (s) => s })
     } catch (err) {
-        console.error('[swordfish] could not create the default Trusted Types policy', err)
+        console.error('[pufferfish] could not create the default Trusted Types policy', err)
     }
 }

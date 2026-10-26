@@ -7,16 +7,16 @@ plugins {
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
 android {
-    namespace = "io.github.shoalapps.anglerfish"
+    namespace = "io.github.shoalapps.swordfish"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "io.github.shoalapps.anglerfish"
+        applicationId = "io.github.shoalapps.swordfish"
         minSdk = 26
         targetSdk = 36
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
-        resValue("string", "app_name", "Anglerfish")
+        resValue("string", "app_name", "Swordfish")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -48,7 +48,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-dev"
-            resValue("string", "app_name", "Anglerfish Dev")
+            resValue("string", "app_name", "Swordfish Dev")
         }
     }
 
