@@ -65,3 +65,7 @@ TV mode includes VacuumTube, MIT License, Copyright (c) 2025-2026 shy; see
 [tv/vacuumtube/LICENSE](tv/vacuumtube/LICENSE).
 
 Swordfish is not affiliated with, endorsed by or sponsored by Google or YouTube.
+
+## Support
+
+Shoal is free, open source and has no ads. If you'd like to help it keep going, you can [support Shoal on Liberapay](https://liberapay.com/ShoalApps).
