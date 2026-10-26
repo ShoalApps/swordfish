@@ -105,7 +105,7 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
-        <!-- Hands settings and sign-ins to the Anglerfish version of this app (new package name). -->
+        <!-- Hands settings and sign-ins to the Swordfish version of this app (new package name). -->
         <provider
             android:name=".LegacyExport"
             android:authorities="${applicationId}.movedata"
