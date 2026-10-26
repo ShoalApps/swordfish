@@ -260,6 +260,7 @@ class PlayerViewModel : ViewModel() {
      * The first time that happens, fetch fresh links and carry on from the same spot.
      */
     private fun onPlaybackFailed(e: PlaybackException) {
+        io.github.shoalapps.swordfish.Telemetry.report(e)
         val url = current?.url
         val http = e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
             e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
@@ -340,6 +341,7 @@ class PlayerViewModel : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 pendingStartMs = 0
+                io.github.shoalapps.swordfish.Telemetry.report(e)
                 error = NetworkInfo.friendlyError(e)
                 onlyYouTubeCanPlay = io.github.shoalapps.swordfish.data.KidsClient.shouldTry(e)
             } finally {

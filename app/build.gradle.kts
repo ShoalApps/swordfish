@@ -11,6 +11,8 @@ android {
     compileSdk = 37
 
     defaultConfig {
+        // Shoal\'s Sentry address, given to release builds by CI; blank means reports are off.
+        buildConfigField("String", "SENTRY_DSN", "\"${System.getenv("SENTRY_DSN") ?: ""}\"")
         applicationId = "io.github.shoalapps.swordfish"
         minSdk = 26
         targetSdk = 36
@@ -59,6 +61,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
         resValues = true
     }
@@ -71,6 +74,11 @@ android {
 }
 
 dependencies {
+    // Error reports, only with consent (MIT). See Telemetry.kt.
+    implementation("io.sentry:sentry-android:8.59.0")
+    // Home-screen widgets (Material You colours via Glance).
+    implementation("androidx.glance:glance-appwidget:1.2.0")
+    implementation("androidx.glance:glance-material3:1.2.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 
     // Jetpack Compose + Material 3 Expressive

@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit
 class TubeApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
+        Telemetry.init(this)
         DataMover.run(this)
         CrashReporter.install(this)
         AppGraph.init(this)

@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Telemetry.askOnce(this)
         DataMover.offerUninstall(this)
         enableEdgeToEdge()
         crashReport.value = CrashReporter.take(this)
@@ -122,6 +123,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        // The widget shows your last video.
+        lifecycleScope.launch { io.github.shoalapps.swordfish.widget.refreshWidget(this@MainActivity) }
         if (!AppGraph.store.settings.value.backgroundPlay && !isInPictureInPictureMode) {
             playerVm.player.pause()
         }

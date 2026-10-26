@@ -450,6 +450,9 @@ fun AboutScreen(onBack: () -> Unit) {
                 }
             }
             row { sh -> Link("Check for updates", "Opens Shoal", sh) { io.github.shoalapps.swordfish.ShoalManager.checkForUpdates(context) } }
+            if (io.github.shoalapps.swordfish.Telemetry.available) row { sh -> Toggle("Send error reports", "Anonymous crash and error reports help fix bugs. Never your accounts or history.", io.github.shoalapps.swordfish.Telemetry.enabled, sh) { v -> io.github.shoalapps.swordfish.Telemetry.setEnabled(context, v) } }
+            row { sh -> Link("Privacy policy", "What Swordfish sends, and to whom", sh) { openExternal(context, "https://shoalapps.github.io/privacy.html") } }
+            row { sh -> Link("Legal", "Licences, trademarks and notices", sh) { openExternal(context, "https://shoalapps.github.io/legal.html") } }
             row { sh -> Link("Support Shoal", "Shoal is free and has no ads; donations on Liberapay keep it going", sh) { openExternal(context, "https://liberapay.com/ShoalApps") } }
             row { sh -> Link("Source code", "github.com/ShoalApps/swordfish", sh) { openExternal(context, "https://github.com/ShoalApps/swordfish") } }
             row { sh -> Link("Website", "shoalapps.github.io", sh) { openExternal(context, "https://shoalapps.github.io") } }
