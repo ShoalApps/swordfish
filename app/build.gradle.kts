@@ -81,7 +81,7 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.graphics:graphics-shapes:1.1.0")
-    implementation("androidx.webkit:webkit:1.14.0")
+    implementation("androidx.webkit:webkit:1.18.0")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
@@ -97,7 +97,7 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:e8f89145a830b4d6cae32412007f24ea8b36c73a")
 
     // Networking, images, JSON
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.1")
     implementation("io.coil-kt.coil3:coil-compose:3.6.3")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
