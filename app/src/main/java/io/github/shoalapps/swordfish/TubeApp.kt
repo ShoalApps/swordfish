@@ -218,6 +218,9 @@ object AppGraph {
             Localization.fromLocale(locale),
             ContentCountry(locale.country.ifBlank { "GB" }),
         )
+        // YouTube increasingly wants a proof-of-origin token; data/potoken makes one the way NewPipe
+        // does. Off until it's been tested on a connection YouTube isn't throttling; to try it:
+        // YoutubeStreamExtractor.setPoTokenProvider(io.github.shoalapps.swordfish.data.potoken.PoTokenProviderImpl)
         if (store.signedIn && store.account.value == null) syncAccount()
         watchNetwork()
         warmUp()
