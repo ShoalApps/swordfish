@@ -118,6 +118,7 @@ fun SettingsScreen(
     val update: ((Settings) -> Settings) -> Unit = { store.updateSettings(it) }
 
     SettingsScaffold("Settings", onBack) {
+        item(key = "support") { val ctx = androidx.compose.ui.platform.LocalContext.current; SupportCard { openExternal(ctx, "https://liberapay.com/ShoalApps") } }
         group("Account") {
             if (signedIn) {
                 row { sh -> Row2(account?.name ?: "Signed in", account?.handle ?: "YouTube account", sh) {
@@ -453,7 +454,6 @@ fun AboutScreen(onBack: () -> Unit) {
             if (io.github.shoalapps.swordfish.Telemetry.available) row { sh -> Toggle("Send error reports", "Anonymous crash and error reports help fix bugs. Never your accounts or history.", io.github.shoalapps.swordfish.Telemetry.enabled, sh) { v -> io.github.shoalapps.swordfish.Telemetry.setEnabled(context, v) } }
             row { sh -> Link("Privacy policy", "What Swordfish sends, and to whom", sh) { openExternal(context, "https://shoalapps.github.io/privacy.html") } }
             row { sh -> Link("Legal", "Licences, trademarks and notices", sh) { openExternal(context, "https://shoalapps.github.io/legal.html") } }
-            row { sh -> Link("Support Shoal", "Shoal is free and has no ads; donations on Liberapay keep it going", sh) { openExternal(context, "https://liberapay.com/ShoalApps") } }
             row { sh -> Link("Source code", "github.com/ShoalApps/swordfish", sh) { openExternal(context, "https://github.com/ShoalApps/swordfish") } }
             row { sh -> Link("Website", "shoalapps.github.io", sh) { openExternal(context, "https://shoalapps.github.io") } }
         }
