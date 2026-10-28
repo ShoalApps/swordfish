@@ -215,6 +215,8 @@ class ShortsViewModel : ViewModel() {
         viewModelScope.launch {
             var tick = 0
             while (true) {
+                // No playback or progress updates are needed while Shorts is hidden.
+                if (!active) { delay(500); continue }
                 val p = currentId?.let { playerFor(it) }
                 val awake = active && p?.isPlaying == true
                 if (ScreenAwake.shorts != awake) ScreenAwake.shorts = awake
@@ -406,6 +408,7 @@ class ShortsViewModel : ViewModel() {
 
     fun setActive(on: Boolean) {
         active = on
+        if (!on) ScreenAwake.shorts = false
         if (on) {
             takeLaunch()
             PlayerHolder.player.pause()

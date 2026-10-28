@@ -40,8 +40,9 @@ object NetworkInfo {
         return when {
             bot && vpn -> "YouTube is blocking your VPN's address. Exclude Swordfish from the VPN with split tunnelling, then try again."
             bot -> "YouTube is asking this network to prove it isn't a bot. Try again, or switch between Wi-Fi and mobile data."
-            offline || cause.any { it is UnknownHostException || it is ConnectException } ->
-                "You're offline. Check your connection and try again."
+            offline -> "You're offline. Check your connection and try again."
+            cause.any { it is UnknownHostException || it is ConnectException } ->
+                "Couldn't reach YouTube. Check your connection and try again."
             cause.any { it is SocketTimeoutException || it is InterruptedIOException } ->
                 "YouTube is taking too long to answer. Try again."
             cause.any { it is SSLException } -> "Couldn't make a secure connection. Check the date and time on your phone, then try again."

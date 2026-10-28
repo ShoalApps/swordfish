@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- The release permission is owned by the installed, release-signed Shoal apps.
+         A debug-signed app cannot redeclare it alongside them. -->
+    <permission android:name="io.github.shoalapps.permission.MOVE_DATA" tools:node="remove" />
+</manifest>

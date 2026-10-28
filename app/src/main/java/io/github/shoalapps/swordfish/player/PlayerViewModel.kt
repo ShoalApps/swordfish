@@ -313,10 +313,9 @@ class PlayerViewModel : ViewModel() {
         val s = store.settings.value
         val cm = AppGraph.app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
-        val unmetered = caps != null && (
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-            )
+        // Android tracks metering through VPNs and user-marked metered Wi-Fi.
+        // When the connection is unknown, use the conservative setting.
+        val unmetered = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true
         return if (unmetered) s.qualityWifi else s.qualityMobile
     }
 

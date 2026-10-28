@@ -21,6 +21,9 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 data class Paged<T>(val items: List<T>, val next: Page?)
 
+/** The extractor cannot distinguish disabled comments from Restricted Mode. */
+class CommentsUnavailableException : Exception("Comments may be turned off or hidden by Restricted Mode.")
+
 data class ChannelDetails(
     val url: String,
     val name: String,
@@ -160,6 +163,7 @@ class YouTubeRepo {
     suspend fun comments(url: String, page: Page? = null): Paged<Comment> = withContext(Dispatchers.IO) {
         if (page == null) {
             val info = CommentsInfo.getInfo(yt, url)
+            if (info.isCommentsDisabled) throw CommentsUnavailableException()
             Paged(info.relatedItems.filterIsInstance<CommentsInfoItem>().map { it.toComment() }, info.nextPage.orNull())
         } else {
             val more = CommentsInfo.getMoreItems(yt, url, page)

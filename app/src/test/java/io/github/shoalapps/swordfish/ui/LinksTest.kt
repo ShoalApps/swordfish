@@ -15,6 +15,11 @@ class LinksTest {
         assertEquals(30, Links.startSeconds("https://www.youtube.com/embed/dQw4w9WgXcQ?start=30"))
     }
 
+    @Test fun hugeTimesDoNotOverflow() {
+        assertEquals(Long.MAX_VALUE / 1000, Links.startSeconds("https://youtu.be/dQw4w9WgXcQ?t=999999999999999999999h"))
+        assertEquals(Long.MAX_VALUE / 1000, Links.startSeconds("https://youtu.be/dQw4w9WgXcQ?t=9223372036854775807"))
+    }
+
     @Test fun otherParametersAreNotMistakenForTime() {
         assertEquals(0, Links.startSeconds("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLt=5"))
         assertEquals(0, Links.startSeconds("https://www.youtube.com/watch?v=dQw4w9WgXcQ&feature=share"))
@@ -26,5 +31,9 @@ class LinksTest {
         assertTrue(Links.isVideo("https://youtube.com/shorts/dQw4w9WgXcQ"))
         assertFalse(Links.isVideo("https://www.youtube.com/@MrBeast"))
         assertFalse(Links.isVideo("https://example.com/watch?v=dQw4w9WgXcQ"))
+        assertFalse(Links.isVideo("https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ"))
+        assertFalse(Links.isVideo("https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ"))
+        assertFalse(Links.isVideo("https://youtube.com/watch?v=dQw4w9WgXcQextra"))
+        assertTrue(Links.isVideo("https://youtu.be/dQw4w9WgXcQ?t=30"))
     }
 }

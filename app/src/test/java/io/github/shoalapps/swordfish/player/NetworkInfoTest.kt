@@ -24,7 +24,8 @@ class NetworkInfoTest {
     }
 
     @Test fun offlineBeatsEverythingButTheBotCheck() {
-        assertEquals("You're offline. Check your connection and try again.", d("Unable to resolve host", UnknownHostException()))
+        assertEquals("Couldn't reach YouTube. Check your connection and try again.", d("Unable to resolve host", UnknownHostException()))
+        assertEquals("You're offline. Check your connection and try again.", d("Unable to resolve host", UnknownHostException(), offline = true))
         assertEquals("You're offline. Check your connection and try again.", d("whatever", offline = true))
     }
 

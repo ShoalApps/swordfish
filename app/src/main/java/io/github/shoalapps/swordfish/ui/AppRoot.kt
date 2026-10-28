@@ -205,9 +205,10 @@ fun AppRoot(vm: PlayerViewModel, inPip: Boolean, pendingRoute: String? = null, o
         if (pendingRoute != null) onRouteHandled()
     }
 
-    // Keep the screen on while a video or Short is playing, like the official app.
+    // Keep the screen on during playback, including when the player is minimized.
+    // Android still lets the user turn the screen off with the power button.
     val view = LocalView.current
-    val awake = (vm.isPlaying && (vm.sheetVisible || inPip)) || ScreenAwake.shorts
+    val awake = vm.isPlaying || ScreenAwake.shorts
     DisposableEffect(awake) {
         view.keepScreenOn = awake
         onDispose { view.keepScreenOn = false }

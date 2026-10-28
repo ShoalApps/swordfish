@@ -1423,7 +1423,6 @@ private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
     val first = vm.comments.firstOrNull()
     Surface(
         onClick = onOpen,
-        enabled = first != null || AppGraph.store.signedIn,
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1457,7 +1456,7 @@ private fun CommentsTeaser(vm: PlayerViewModel, onOpen: () -> Unit) {
                     modifier = Modifier.padding(top = 6.dp),
                 )
                 else -> Text(
-                    "Comments are turned off for this video",
+                    "No comments available",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -1596,6 +1595,14 @@ private fun CommentsPanel(vm: PlayerViewModel, onLink: (String) -> Unit, modifie
                     }
                 }
                 if (vm.commentsLoading) item { CenterLoading() }
+                if (!vm.commentsLoading && vm.comments.isEmpty() && vm.commentsError == null) {
+                    item {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No comments available")
+                            TextButton(onClick = { vm.loadComments() }) { Text("Try again") }
+                        }
+                    }
+                }
                 vm.commentsError?.let { err ->
                     item { ErrorState(err, { vm.loadComments() }) }
                 }

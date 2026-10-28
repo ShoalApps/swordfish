@@ -189,13 +189,13 @@ fun SettingsScreen(
 
         group("Video quality") {
             row { sh ->
-                Link("On Wi-Fi", "${s.qualityWifi}p", sh) {
-                    choice = Choice("Quality on Wi-Fi", qualityChoices(), s.qualityWifi.toString()) { v -> update { it.copy(qualityWifi = v.toInt()) } }
+                Link("On unmetered networks", "${s.qualityWifi}p", sh) {
+                    choice = Choice("Quality on unmetered networks", qualityChoices(), s.qualityWifi.toString()) { v -> update { it.copy(qualityWifi = v.toInt()) } }
                 }
             }
             row { sh ->
-                Link("On mobile networks", "${s.qualityMobile}p", sh) {
-                    choice = Choice("Quality on mobile networks", qualityChoices(), s.qualityMobile.toString()) { v -> update { it.copy(qualityMobile = v.toInt()) } }
+                Link("On metered networks", "${s.qualityMobile}p", sh) {
+                    choice = Choice("Quality on metered networks", qualityChoices(), s.qualityMobile.toString()) { v -> update { it.copy(qualityMobile = v.toInt()) } }
                 }
             }
         }
