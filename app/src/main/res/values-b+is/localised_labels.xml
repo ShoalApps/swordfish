@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">Leita</string>
+  <string name="shortcut_subs">Áskriftir</string>
+  <string name="shortcut_shorts">Símamyndir</string>
+</resources>

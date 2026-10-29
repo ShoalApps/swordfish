@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">搜尋</string>
+  <string name="shortcut_subs">訂閱</string>
+  <string name="shortcut_shorts">短片</string>
+</resources>

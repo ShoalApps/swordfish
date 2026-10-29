@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">Busca</string>
+  <string name="shortcut_subs">Subscricións</string>
+  <string name="shortcut_shorts">Curtos</string>
+</resources>

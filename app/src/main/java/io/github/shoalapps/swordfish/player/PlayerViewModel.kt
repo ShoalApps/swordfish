@@ -65,6 +65,10 @@ class PlayerViewModel : ViewModel() {
         private set
     var quality by mutableIntStateOf(1080)
         private set
+    var audioTracks by mutableStateOf<List<AudioChoice>>(emptyList())
+        private set
+    var audioTrackId by mutableStateOf<String?>(null)
+        private set
     var speed by mutableFloatStateOf(AppGraph.store.settings.value.defaultSpeed)
         private set
 
@@ -124,8 +128,27 @@ class PlayerViewModel : ViewModel() {
     var fullscreen by mutableStateOf(false)
 
     private var loadJob: Job? = null
+    private var usingLocal = false
 
     private val listener = object : Player.Listener {
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+            if (!usingLocal && playing?.hls == null) return
+            val choices = mutableListOf<AudioChoice>()
+            tracks.groups.forEachIndexed { groupIndex, group ->
+                if (group.type != androidx.media3.common.C.TRACK_TYPE_AUDIO) return@forEachIndexed
+                for (trackIndex in 0 until group.length) {
+                    if (!group.isTrackSupported(trackIndex)) continue
+                    val format = group.getTrackFormat(trackIndex)
+                    val id = "media3:$groupIndex:$trackIndex"
+                    val language = format.language?.takeUnless { it == "und" }
+                    choices += AudioChoice(id, format.label ?: language?.let {
+                        java.util.Locale.forLanguageTag(it).getDisplayName(java.util.Locale.getDefault())
+                    } ?: if (usingLocal) "Downloaded audio" else "Audio ${choices.size + 1}", language)
+                    if (group.isTrackSelected(trackIndex)) audioTrackId = id
+                }
+            }
+            audioTracks = choices
+        }
         override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
         override fun onPlaybackStateChanged(state: Int) {
             buffering = state == Player.STATE_BUFFERING
@@ -150,6 +173,30 @@ class PlayerViewModel : ViewModel() {
 
     init {
         player.addListener(listener)
+        viewModelScope.launch {
+            io.github.shoalapps.swordfish.data.NetworkPolicy.changes.collect {
+                val i = info
+                val q = preferredQuality()
+                if (!usingLocal && !loading && i != null && quality != q) {
+                    val resume = player.currentPosition
+                    val wantedPlay = player.playWhenReady
+                    quality = q
+                    play(i, resume)
+                    player.playWhenReady = wantedPlay
+                }
+            }
+        }
+        viewModelScope.launch {
+            AppGraph.offline.videos.collect {
+                val video = current ?: return@collect
+                if (!usingLocal && !loading && AppGraph.offline.local(video.id) != null) {
+                    val resume = player.currentPosition.coerceAtLeast(0)
+                    val playingNow = player.playWhenReady
+                    playLocal(video.id, resume, playingNow)
+                    error = null
+                }
+            }
+        }
         viewModelScope.launch {
             while (true) {
                 // Nothing to track while no video is open (but keep skipping while it plays in the background).
@@ -224,6 +271,7 @@ class PlayerViewModel : ViewModel() {
      * If none of the first few play, it stays on the finished video.
      */
     private fun autoplayNext() {
+        if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData()) return
         val candidates = related.take(5)
         viewModelScope.launch {
             for (c in candidates) {
@@ -246,7 +294,7 @@ class PlayerViewModel : ViewModel() {
     fun open(item: VideoItem) {
         current = item
         showSheet(1f)
-        if (info?.url == item.url && error == null) return
+        if ((info?.url == item.url || usingLocal && player.currentMediaItem?.mediaId == item.id) && error == null) return
         load(item.url)
     }
 
@@ -282,6 +330,12 @@ class PlayerViewModel : ViewModel() {
      * The first time that happens, fetch fresh links and carry on from the same spot.
      */
     private fun onPlaybackFailed(e: PlaybackException) {
+        val localId = current?.id
+        if (!usingLocal && localId != null && AppGraph.offline.local(localId) != null) {
+            playLocal(localId, player.currentPosition.coerceAtLeast(0), player.playWhenReady)
+            error = null
+            return
+        }
         io.github.shoalapps.swordfish.Telemetry.report(e)
         val url = current?.url
         val http = e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
@@ -310,13 +364,7 @@ class PlayerViewModel : ViewModel() {
     }
 
     private fun preferredQuality(): Int {
-        val s = store.settings.value
-        val cm = AppGraph.app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val caps = cm.getNetworkCapabilities(cm.activeNetwork)
-        // Android tracks metering through VPNs and user-marked metered Wi-Fi.
-        // When the connection is unknown, use the conservative setting.
-        val unmetered = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true
-        return if (unmetered) s.qualityWifi else s.qualityMobile
+        return io.github.shoalapps.swordfish.data.NetworkPolicy.quality()
     }
 
     private fun load(url: String, keepRecovered: Boolean = false) {
@@ -328,34 +376,50 @@ class PlayerViewModel : ViewModel() {
         captionTracks = emptyList(); captionTrack = null; cues = emptyList(); captionText = null
         chapters = emptyList(); chapterIndex = -1
         quality = preferredQuality()
+        audioTracks = emptyList()
+        audioTrackId = null
         speed = store.settings.value.defaultSpeed
         loading = true
         player.stop()
         player.clearMediaItems()
+        usingLocal = false
         SkipAware.clear(); playing = null; endedAtOutro = false
         val videoId = videoIdOf(url)
+        AppGraph.offline.watching(current)
+        if (AppGraph.offline.local(videoId) != null) {
+            playLocal(videoId, pendingStartMs, true)
+            pendingStartMs = 0
+            loading = false
+            current?.let(store::addHistory)
+            return
+        }
         loadJob = viewModelScope.launch {
             // These don't depend on the stream, so start them straight away.
             val s = store.settings.value
-            if (s.sponsorBlock) launch { segments = AppGraph.sponsorBlock.segments(videoId, s.sbSkip); planSkips() }
-            if (s.ryd) launch { votes = AppGraph.ryd.votes(videoId) }
-            launch { loadComments(url) }
+            if (!io.github.shoalapps.swordfish.data.NetworkPolicy.savingData()) {
+                if (s.sponsorBlock) launch { segments = AppGraph.sponsorBlock.segments(videoId, s.sbSkip); planSkips() }
+                if (s.ryd) launch { votes = AppGraph.ryd.votes(videoId) }
+                launch { loadComments(url) }
+            }
             try {
                 val i = prefetched?.takeIf { it.first == url }?.second ?: streamWithRetry(url)
                 prefetched = null
                 info = i
+                audioTracks = if (i.videoOnlyStreams.isNotEmpty()) StreamPicker.audioTracks(i) else emptyList()
                 val video = i.toVideo().let { v ->
                     // keep the avatar/thumbnail we already had if the page lacks them
                     val prev = current
                     v.copy(channelAvatar = v.channelAvatar ?: prev?.channelAvatar)
                 }
                 current = video
+                AppGraph.offline.watching(video)
                 related = io.github.shoalapps.swordfish.data.FeedFilter.apply(
                     i.relatedItems.filterIsInstance<StreamInfoItem>().map { it.toVideo() }
                         .ifEmpty { io.github.shoalapps.swordfish.data.KidsClient.related[i.id].orEmpty() },
                 )
                 store.addHistory(video)
-                play(i, pendingStartMs)
+                if (AppGraph.offline.local(video.id) != null) playLocal(video.id, pendingStartMs, true)
+                else play(i, pendingStartMs)
                 pendingStartMs = 0
                 captionTracks = Captions.tracks(i)
                 chapters = Chapters.of(i)
@@ -387,7 +451,8 @@ class PlayerViewModel : ViewModel() {
         }
 
     private fun play(i: StreamInfo, startMs: Long) {
-        val choice = StreamPicker.pick(i, quality)
+        val choice = StreamPicker.pick(i, quality, audioTrackId)
+        if (choice.audio != null) audioTrackId = StreamPicker.audioId(choice.audio)
         qualities = choice.qualities
         val source = StreamPicker.buildSource(choice, i)
         if (source == null) {
@@ -400,6 +465,19 @@ class PlayerViewModel : ViewModel() {
         player.prepare()
         player.play()
         planSkips()
+    }
+
+    private fun playLocal(id: String, startMs: Long, playWhenReady: Boolean) {
+        val file = AppGraph.offline.local(id) ?: return
+        usingLocal = true
+        playing = null
+        SkipAware.clear()
+        qualities = emptyList()
+        player.setMediaItem(androidx.media3.common.MediaItem.Builder()
+            .setMediaId(id).setUri(android.net.Uri.fromFile(file)).build(), startMs)
+        player.setPlaybackSpeed(speed)
+        player.prepare()
+        player.playWhenReady = playWhenReady
     }
 
     private var lastLoggedSec = -1L
@@ -491,8 +569,29 @@ class PlayerViewModel : ViewModel() {
 
     /** Changes quality for this video only; the defaults live in Settings. */
     fun changeQuality(q: Int) {
-        quality = q
+        quality = if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData()) q.coerceAtMost(720) else q
         info?.let { play(it, player.currentPosition) }
+    }
+
+    fun changeAudioTrack(id: String) {
+        if (audioTracks.none { it.id == id }) return
+        if (id.startsWith("media3:")) {
+            val parts = id.split(':')
+            val group = player.currentTracks.groups.getOrNull(parts.getOrNull(1)?.toIntOrNull() ?: -1) ?: return
+            val index = parts.getOrNull(2)?.toIntOrNull() ?: return
+            if (index !in 0 until group.length) return
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, index))
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_AUDIO, false).build()
+            audioTrackId = id
+            return
+        }
+        val stream = info ?: return
+        val position = player.currentPosition
+        val keepPlaying = player.playWhenReady
+        audioTrackId = id
+        play(stream, position)
+        player.playWhenReady = keepPlaying
     }
 
     fun selectCaptions(track: CaptionTrack?) {
@@ -555,6 +654,7 @@ class PlayerViewModel : ViewModel() {
         sheetVisible = false
         fullscreen = false
         current = null
+        AppGraph.offline.watching(null)
         info = null
         error = null
         viewModelScope.launch { expand.snapTo(0f) }

@@ -58,7 +58,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import io.github.shoalapps.swordfish.LocalisedIcon as Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
@@ -66,7 +66,7 @@ import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import io.github.shoalapps.swordfish.LocalisedText as Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -231,6 +231,17 @@ class ShortsViewModel : ViewModel() {
                 delay(100)
             }
         }
+        viewModelScope.launch {
+            io.github.shoalapps.swordfish.data.NetworkPolicy.changes.collect {
+                val index = items.indexOfFirst { v -> v.id == currentId }
+                if (index >= 0) {
+                    val wasPaused = paused
+                    retryNetwork()
+                    paused = wasPaused
+                    applyPlayState()
+                }
+            }
+        }
         load()
     }
 
@@ -329,7 +340,7 @@ class ShortsViewModel : ViewModel() {
         viewedThisSession += item.id
         checkSessionLimit()
 
-        val wanted = listOf(index, index + 1, index - 1).mapNotNull { items.getOrNull(it)?.id }
+        val wanted = (if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData()) listOf(index) else listOf(index, index + 1, index - 1)).mapNotNull { items.getOrNull(it)?.id }
         for (slot in 0 until 3) {
             if (slotId[slot] !in wanted) {
                 slotJobs[slot]?.cancel()
@@ -346,7 +357,7 @@ class ShortsViewModel : ViewModel() {
             slotJobs[slot] = viewModelScope.launch {
                 try {
                     val inf = info(id)
-                    val src = StreamPicker.buildSource(StreamPicker.pick(inf, Int.MAX_VALUE), inf) // Shorts are short: always the best quality
+                    val src = StreamPicker.buildSource(StreamPicker.pick(inf, io.github.shoalapps.swordfish.data.NetworkPolicy.quality()), inf)
                     if (src == null) { markFailed(id); return@launch }
                     if (slotId[slot] != id) return@launch
                     pool[slot].setMediaSource(src)
@@ -366,6 +377,7 @@ class ShortsViewModel : ViewModel() {
         applyPlayState()
 
         // Look further ahead: details, thumbnails and dislikes for three above and below.
+        if (!io.github.shoalapps.swordfish.data.NetworkPolicy.backgroundAllowed()) return
         for (i in (index - 3)..(index + 3)) {
             val v = items.getOrNull(i) ?: continue
             if (!infos.containsKey(v.id)) viewModelScope.launch {

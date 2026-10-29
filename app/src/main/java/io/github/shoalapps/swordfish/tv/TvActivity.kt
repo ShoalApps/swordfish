@@ -20,6 +20,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -37,7 +39,9 @@ import org.json.JSONObject
  * Bluetooth/USB controllers all drive it.
  */
 class TvActivity : ComponentActivity() {
+    override fun attachBaseContext(base: android.content.Context) { super.attachBaseContext(io.github.shoalapps.swordfish.AppLanguage.wrap(base)) }
     internal lateinit var web: WebView
+    private var saverDialogShown = false
     private val pad = Gamepad { buttons, axes ->
         web.evaluateJavascript("window.__pufferfishPad&&window.__pufferfishPad([${buttons.joinToString(",")}],[${axes.joinToString(",")}])", null)
     }
@@ -111,7 +115,24 @@ class TvActivity : ComponentActivity() {
         })
 
         deepLink = deepLinkOf(intent)
-        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl("https://www.youtube.com/tv")
+        if (!io.github.shoalapps.swordfish.data.NetworkPolicy.savingData()) {
+            if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl("https://www.youtube.com/tv")
+        }
+        lifecycleScope.launch {
+            io.github.shoalapps.swordfish.data.NetworkPolicy.changes.collect {
+                if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData() && !saverDialogShown) {
+                    saverDialogShown = true
+                    web.stopLoading()
+                    web.loadUrl("about:blank")
+                    android.app.AlertDialog.Builder(this@TvActivity)
+                        .setTitle(io.github.shoalapps.swordfish.AppLanguage.translate("Data Saver is on"))
+                        .setMessage(io.github.shoalapps.swordfish.AppLanguage.translate("Connect to unmetered Wi-Fi for TV mode, or use Swordfish's video player to keep watching with data limits."))
+                        .setPositiveButton(io.github.shoalapps.swordfish.AppLanguage.translate("Back to Swordfish")) { _, _ -> finish() }
+                        .setOnCancelListener { finish() }
+                        .show()
+                }
+            }
+        }
         web.requestFocus()
     }
 

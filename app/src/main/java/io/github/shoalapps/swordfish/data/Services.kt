@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; isLenient = true }
 
 private fun OkHttpClient.getText(url: String): String? {
+    if (NetworkPolicy.savingData()) return null
     val req = Request.Builder().url(url).header("User-Agent", "Tube/0.1 (Android)").build()
     newCall(req).execute().use { resp ->
         if (!resp.isSuccessful) return null

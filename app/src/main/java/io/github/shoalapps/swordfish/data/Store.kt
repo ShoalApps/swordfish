@@ -31,7 +31,16 @@ data class Settings(
 
     // Quality
     val qualityWifi: Int = 1080,
-    val qualityMobile: Int = 1080,
+    val qualityMobile: Int = 720,
+
+    // Offline videos. Automatic copies are disposable; explicit downloads are kept.
+    val cacheCurrentVideo: Boolean = true,
+    val autoDownloadCount: Int = 4,
+    val downloadWifiOnly: Boolean = true,
+
+    // New subscriptions inherit this bell setting. Existing bells stay unchanged.
+    val defaultNotifications: NotificationMode = NotificationMode.ALL,
+    val notificationDailyLimit: Int = 10,
 
     // Playback
     val backgroundPlay: Boolean = true,
@@ -101,7 +110,13 @@ object LearningTopics {
 }
 
 @Serializable
-data class Sub(val url: String, val name: String, val avatar: String? = null)
+data class Sub(val url: String, val name: String, val avatar: String? = null,
+    val notifications: NotificationMode = NotificationMode.NONE)
+
+@Serializable
+enum class NotificationMode(val label: String) {
+    ALL("All"), PERSONALISED("Personalised"), NONE("None")
+}
 
 @Serializable
 data class Account(val name: String, val handle: String? = null, val avatar: String? = null)
@@ -156,9 +171,14 @@ class Store(context: Context) {
     /** Returns true if now subscribed. */
     fun toggleSub(sub: Sub): Boolean {
         val nowSubscribed = !isSubscribed(sub.url)
-        _subs.update { list -> if (nowSubscribed) list + sub else list.filterNot { it.url == sub.url } }
+        _subs.update { list -> if (nowSubscribed) list + sub.copy(notifications = settings.value.defaultNotifications) else list.filterNot { it.url == sub.url } }
         save("subs", _subs.value)
         return nowSubscribed
+    }
+
+    fun setNotifications(url: String, mode: NotificationMode) {
+        _subs.update { list -> list.map { if (it.url == url) it.copy(notifications = mode) else it } }
+        save("subs", _subs.value)
     }
 
     fun mergeSubs(incoming: List<Sub>) {

@@ -210,6 +210,12 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         }
     }
 
+    suspend fun setNotifications(channelId: String, mode: NotificationMode) {
+        post("notification/modify_channel_preference") {
+            put("params", SubscriptionNotifications.preferenceParams(channelId, mode))
+        }
+    }
+
     /** action = "like", "dislike" or "removelike" */
     suspend fun rate(videoId: String, action: String) {
         post("like/$action") { putJsonObject("target") { put("videoId", videoId) } }

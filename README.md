@@ -51,7 +51,7 @@ since YouTube blocks GitHub's servers. Run the full set on a home connection bef
 ## Roadmap
 
 - v1: browse, search, channels, subscriptions, player, SponsorBlock, DeArrow
-- v2: video and audio downloads with yt-dlp
+- v2: offline video downloads with yt-dlp; audio-only downloads remain planned
 - v3: extras
 
 ## Licence
@@ -73,3 +73,23 @@ No ads, no tracking, nothing sent to us unless you agree to anonymous error repo
 ## Support
 
 Shoal is free, open source and has no ads. If you'd like to help it keep going, you can [support Shoal on Liberapay](https://liberapay.com/ShoalApps).
+
+## Release notes
+
+Update `app/src/main/assets/whats-new.json` with each release. Notes ship with the APK, appear once per installed version and can be reopened from Settings. Keep them specific to changes in that release.
+
+## Offline videos and data use
+
+Swordfish uses on-device yt-dlp with FFmpeg. The current video and four recommendations are automatically downloaded on unmetered Wi-Fi by default. Settings can disable the current-video copy, choose 0-50 recommended copies, or explicitly allow mobile downloads. Saved videos are kept separately from automatic copies and can be played or removed in You. Only completed files are used offline; network playback switches to the complete file at the same position when it becomes available. Live streams are excluded.
+
+Mobile playback defaults to 720p in both the main player and Shorts. Android Data Saver pauses metered downloads and background prefetching, disables new thumbnail requests and optional community lookups, and caps native playback at 720p.
+
+New subscriptions default to All notifications. The bell offers All, Personalised (one latest upload per channel per check) and None, with a configurable daily cap. Checks run approximately every 30 minutes, subject to Android scheduling, connectivity and notification permission. The first check establishes a baseline without alerting old uploads. Signed-in bell changes sync to YouTube, with a message if sync fails.
+
+## App language
+
+The apps follow Android's system language by default, with an App language picker in Settings and right-to-left layout support. Translations are bundled and work offline. Coverage varies: many phrases are automatically translated, community catalogues may be partial, and missing strings fall back to British English. See `tools/README.md` and `app/src/main/assets/i18n/coverage.json` for maintenance and actual coverage.
+
+## Audio tracks and thumbnails
+
+The player lists audio languages and audio descriptions exposed by NewPipeExtractor for the current video. Switching a progressive track preserves position, quality and pause state; HLS and downloaded files use the audio tracks exposed by Media3. Downloaded files only offer tracks that were actually saved. Captions, chapters, speed, quality, looping, background playback and picture-in-picture remain available where supported. This does not promise full YouTube parity, premium service access, DRM playback, or tracks the upstream service does not expose. Small standard YouTube thumbnails request a 720p image and fall back to the original URL on failure.

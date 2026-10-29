@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Button
@@ -52,12 +53,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
+import io.github.shoalapps.swordfish.LocalisedIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import io.github.shoalapps.swordfish.LocalisedText as Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -493,7 +494,7 @@ fun ChannelRow(item: ChannelItem, onClick: () -> Unit) {
     ) {
         Box(Modifier.width(96.dp), contentAlignment = Alignment.Center) { Avatar(item.avatar, 80.dp) }
         Column(Modifier.padding(horizontal = 16.dp).weight(1f)) {
-            Text(item.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.name, localise = false, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (item.subscribers >= 0) {
                 Text(
                     "${formatCount(item.subscribers)} subscribers",
@@ -502,7 +503,38 @@ fun ChannelRow(item: ChannelItem, onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(8.dp))
-            SubscribeButton(subscribed) { AppGraph.toggleSubscribe(Sub(item.url, item.name, item.avatar)) }
+            ChannelSubscribe(Sub(item.url, item.name, item.avatar))
+        }
+    }
+}
+
+/** YouTube-style pill: inverse colours, then a softer tonal shape once subscribed. */
+@Composable
+fun ChannelSubscribe(channel: Sub) {
+    val subs by AppGraph.store.subs.collectAsState()
+    val sub = subs.firstOrNull { it.url == channel.url }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SubscribeButton(sub != null) { AppGraph.toggleSubscribe(channel) }
+        if (sub != null) SubscriptionBell(sub)
+    }
+}
+
+@Composable
+fun SubscriptionBell(sub: Sub) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        androidx.compose.material3.IconButton(onClick = { expanded = true }) {
+            Icon(if (sub.notifications == io.github.shoalapps.swordfish.data.NotificationMode.NONE)
+                Icons.Rounded.NotificationsNone else Icons.Rounded.Notifications,
+                "Notifications: ${sub.notifications.label}")
+        }
+        androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            io.github.shoalapps.swordfish.data.NotificationMode.entries.forEach { mode ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text((if (sub.notifications == mode) "✓ " else "") + mode.label) },
+                    onClick = { AppGraph.setNotifications(sub.url, mode); expanded = false },
+                )
+            }
         }
     }
 }
@@ -539,8 +571,6 @@ fun SubscribeButton(subscribed: Boolean, onClick: () -> Unit) {
         ) { isSub ->
             if (isSub) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.NotificationsNone, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
                     Text("Subscribed")
                 }
             } else {

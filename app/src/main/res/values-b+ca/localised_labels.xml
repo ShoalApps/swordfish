@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">Cerca</string>
+  <string name="shortcut_subs">Subscripcions</string>
+  <string name="shortcut_shorts">Curts</string>
+</resources>
