@@ -38,7 +38,7 @@ fun OfflineStatus() {
                         Row {
                             if (ours && action.state in setOf("review", "failed", "pending")) {
                                 TextButton(onClick = {
-                                    AppGraph.scope.launch { AppGraph.actions.retry(action.id); AppGraph.actions.flush() }
+                                    AppGraph.scope.launch { AppGraph.actions.retry(action.id); AppGraph.actions.schedule(); AppGraph.actions.flush() }
                                 }) { Text(if (action.state == "review") "Send again" else "Retry") }
                             }
                             if (action.state != "sending") TextButton(onClick = {

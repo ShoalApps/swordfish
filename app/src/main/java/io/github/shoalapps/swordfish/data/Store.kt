@@ -34,6 +34,7 @@ data class Settings(
     val qualityMobile: Int = 720,
 
     // Offline videos. Automatic copies are disposable; explicit downloads are kept.
+    val offlineMode: Boolean = false,
     val cacheCurrentVideo: Boolean = true,
     val autoDownloadCount: Int = 4,
     val downloadWifiOnly: Boolean = true,

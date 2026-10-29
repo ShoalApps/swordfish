@@ -31,7 +31,7 @@ data class AccountFeed(val videos: List<VideoItem>, val shorts: List<VideoItem>)
  * using the cookies captured by the sign-in page.
  */
 class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
-    internal suspend fun perform(action: OfflineAction) {
+    internal suspend fun perform(action: OfflineAction) = withContext(ActionOwner(action.account)) {
         when (action.kind) {
             "subscription" -> sendSetSubscribed(action.target, action.value.toBooleanStrict())
             "bell" -> sendSetNotifications(action.target, NotificationMode.valueOf(action.value))
@@ -79,6 +79,9 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
             val v = version()
             val locale = Locale.getDefault()
             val pageId = if (useChannel) store.pageId.value else null
+            val expected = kotlinx.coroutines.currentCoroutineContext()[ActionOwner]?.identity
+            if (expected != null && AppGraph.actions.identity(cookie, pageId) != expected)
+                throw IOException("This action belongs to a different sign-in or channel")
             val body = buildJsonObject {
                 putJsonObject("context") {
                     putJsonObject("client") {

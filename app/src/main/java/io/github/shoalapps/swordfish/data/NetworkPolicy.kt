@@ -13,10 +13,10 @@ object NetworkPolicy {
         AppGraph.app.getSystemService(ConnectivityManager::class.java)?.restrictBackgroundStatus ==
         ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
 
-    fun backgroundAllowed(): Boolean = !savingData()
+    fun backgroundAllowed(): Boolean = !io.github.shoalapps.swordfish.player.NetworkInfo.offline() && !savingData()
 
     fun downloadsAllowed(): Boolean {
-        if (savingData()) return false
+        if (savingData() || io.github.shoalapps.swordfish.player.NetworkInfo.offline()) return false
         if (OfflineVideos.wifi()) return true
         val cm = AppGraph.app.getSystemService(ConnectivityManager::class.java) ?: return false
         return !AppGraph.store.settings.value.downloadWifiOnly &&

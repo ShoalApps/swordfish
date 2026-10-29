@@ -203,6 +203,7 @@ fun SettingsScreen(
         }
 
         group("Offline videos") {
+            row { sh -> Toggle("Offline mode", "Show downloads and save account actions for later", s.offlineMode, sh) { v -> update { it.copy(offlineMode = v) } } }
             row { sh -> Toggle("Keep the current video offline", "Download the whole video, then remove old automatic copies when you change videos", s.cacheCurrentVideo, sh) { v -> update { it.copy(cacheCurrentVideo = v) } } }
             row { sh ->
                 Tile(sh) {

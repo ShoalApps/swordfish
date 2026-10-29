@@ -26,7 +26,7 @@ data class OfflineAction(
     val extra: String = "",
     val state: String = "pending",
 ) {
-    val repeatable get() = kind in setOf("subscription", "bell", "rating", "commentRating")
+    val repeatable get() = kind in setOf("subscription", "bell", "rating")
 }
 
 /** Desired-state changes collapse; comments remain separate and keep their order. */
@@ -67,13 +67,12 @@ class OfflineActions(context: Context) {
     }
 
     /** A changed sign-in or channel cannot inherit another account's queued writes. */
-    fun identity(): String? {
-        val cookie = AppGraph.store.cookie.value ?: return null
-        if (!AppGraph.store.signedIn) return null
+    fun identity(cookie: String? = AppGraph.store.cookie.value, page: String? = AppGraph.store.pageId.value): String? {
+        if (cookie == null || !cookie.contains("SAPISID")) return null
         val sid = cookie.split(';').map { it.trim() }.firstOrNull { it.startsWith("SAPISID=") }
             ?: cookie.split(';').map { it.trim() }.firstOrNull { it.startsWith("__Secure-3PAPISID=") }
             ?: return null
-        return MessageDigest.getInstance("SHA-256").digest((sid + "|" + AppGraph.store.pageId.value).toByteArray())
+        return MessageDigest.getInstance("SHA-256").digest((sid + "|" + page).toByteArray())
             .joinToString("") { "%02x".format(it) }
     }
 
@@ -99,7 +98,16 @@ class OfflineActions(context: Context) {
         synchronized(this) {
             save(ActionPolicy.add(_actions.value, OfflineAction(account = owner, kind = kind, target = target, value = value, extra = extra)))
         }
+        schedule()
         AppGraph.scope.launch { flush() }
+    }
+
+    fun schedule() {
+        if (_actions.value.none { it.state in setOf("pending", "failed") && it.account == identity() }) return
+        val request = androidx.work.OneTimeWorkRequestBuilder<OfflineSyncWorker>()
+            .setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
+            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, java.util.concurrent.TimeUnit.SECONDS).build()
+        androidx.work.WorkManager.getInstance(AppGraph.app).enqueueUniqueWork("offline-account-sync", androidx.work.ExistingWorkPolicy.KEEP, request)
     }
 
     suspend fun flush() = mutex.withLock {
@@ -124,4 +132,20 @@ class OfflineActions(context: Context) {
     @Synchronized fun reconnect() {
         save(_actions.value.map { if (it.state == "failed") it.copy(state = "pending") else it })
     }
+}
+
+
+/** Ordinary constrained work: account replay does not start a foreground download service. */
+class OfflineSyncWorker(context: Context, params: androidx.work.WorkerParameters) : androidx.work.CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        if (!NetworkPolicy.backgroundAllowed() || io.github.shoalapps.swordfish.player.NetworkInfo.offline()) return Result.retry()
+        AppGraph.actions.reconnect()
+        AppGraph.actions.flush()
+        return if (AppGraph.actions.actions.value.any { it.account == AppGraph.actions.identity() && it.state in setOf("pending", "failed") })
+            Result.retry() else Result.success()
+    }
+}
+
+internal class ActionOwner(val identity: String) : kotlin.coroutines.AbstractCoroutineContextElement(Key) {
+    companion object Key : kotlin.coroutines.CoroutineContext.Key<ActionOwner>
 }

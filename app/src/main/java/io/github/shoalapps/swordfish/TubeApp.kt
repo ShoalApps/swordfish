@@ -213,7 +213,7 @@ object AppGraph {
         runCatching {
             cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
                 override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
-                    online.value = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    online.value = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) && !store.settings.value.offlineMode
                     io.github.shoalapps.swordfish.data.NetworkPolicy.changed()
                     scope.launch {
                         offline.reconcile()
@@ -271,7 +271,11 @@ object AppGraph {
         // does. Off until it's been tested on a connection YouTube isn't throttling; to try it:
         // YoutubeStreamExtractor.setPoTokenProvider(io.github.shoalapps.swordfish.data.potoken.PoTokenProviderImpl)
         if (store.signedIn && store.account.value == null) syncAccount()
-        scope.launch { store.settings.collect { offline.reconcile() } }
+        scope.launch { store.settings.collect {
+            online.value = !io.github.shoalapps.swordfish.player.NetworkInfo.offline()
+            offline.reconcile()
+            if (online.value) { actions.schedule(); actions.flush() }
+        } }
         androidx.core.content.ContextCompat.registerReceiver(app, object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
                 io.github.shoalapps.swordfish.data.NetworkPolicy.changed()
@@ -280,7 +284,7 @@ object AppGraph {
         }, android.content.IntentFilter(android.net.ConnectivityManager.ACTION_RESTRICT_BACKGROUND_CHANGED), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         io.github.shoalapps.swordfish.data.SubscriptionNotifications.schedule(app)
         watchNetwork()
-        scope.launch { actions.flush() }
+        scope.launch { actions.schedule(); actions.flush() }
         warmUp()
     }
 }
