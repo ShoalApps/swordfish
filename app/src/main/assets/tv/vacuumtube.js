@@ -5,9 +5,9 @@
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
 
-  // trusted-types.js
+  // tv/trusted-types.js
   var require_trusted_types = __commonJS({
-    "trusted-types.js"() {
+    "tv/trusted-types.js"() {
       if (window.trustedTypes && window.trustedTypes.createPolicy && !window.trustedTypes.defaultPolicy) {
         try {
           window.trustedTypes.createPolicy("default", { createHTML: (s) => s, createScript: (s) => s, createScriptURL: (s) => s });
@@ -18,9 +18,9 @@
     }
   });
 
-  // gamepad.js
+  // tv/gamepad.js
   var require_gamepad = __commonJS({
-    "gamepad.js"() {
+    "tv/gamepad.js"() {
       var pad = {
         id: "Shoal controller (STANDARD GAMEPAD)",
         index: 0,
@@ -64,9 +64,9 @@
     }
   });
 
-  // vacuumtube/preload/util/functions.js
+  // tv/vacuumtube/preload/util/functions.js
   var require_functions = __commonJS({
-    "vacuumtube/preload/util/functions.js"(exports, module) {
+    "tv/vacuumtube/preload/util/functions.js"(exports, module) {
       function el(tag, attrs = {}, children = []) {
         const element = document.createElement(tag);
         for (const [key, value] of Object.entries(attrs)) {
@@ -140,9 +140,9 @@
     }
   });
 
-  // vacuumtube/preload/util/xhrModifiers.js
+  // tv/vacuumtube/preload/util/xhrModifiers.js
   var require_xhrModifiers = __commonJS({
-    "vacuumtube/preload/util/xhrModifiers.js"(exports, module) {
+    "tv/vacuumtube/preload/util/xhrModifiers.js"(exports, module) {
       var functions = require_functions();
       var responseModifiers = [];
       var requestModifiers = [];
@@ -285,9 +285,193 @@
     }
   });
 
-  // vacuumtube/preload/util/jsonModifiers.js
+  // tv/vacuumtube/preload/util/configOverrides.js
+  var require_configOverrides = __commonJS({
+    "tv/vacuumtube/preload/util/configOverrides.js"(exports, module) {
+      var functions = require_functions();
+      var ytcfgOverrides = [];
+      var environmentOverrides = [];
+      function overrideEnv(key, value) {
+        let params = new URLSearchParams(window.location.search);
+        key = String(key);
+        value = String(value);
+        let existing = params.has(key);
+        if (existing) {
+          if (value === existing) return;
+          params.delete(key);
+        }
+        params.set(key, value);
+        let newUrl = window.location.pathname + "?" + params.toString();
+        history.replaceState(null, "", newUrl);
+      }
+      function applyOverrides(target, overrides) {
+        for (let override of overrides) {
+          try {
+            functions.deepMerge(target, override);
+          } catch (err) {
+            console.error("a config override failed", err);
+          }
+        }
+      }
+      var environment;
+      Object.defineProperty(window, "environment", {
+        configurable: true,
+        get() {
+          return environment;
+        },
+        set(value) {
+          applyOverrides(value, environmentOverrides);
+          environment = value;
+        }
+      });
+      var ytcfg;
+      Object.defineProperty(window, "ytcfg", {
+        configurable: true,
+        get() {
+          return ytcfg;
+        },
+        set(value) {
+          ytcfg = value;
+          let set = value?.set;
+          if (typeof set !== "function") return;
+          value.set = function(...args) {
+            let result = set.apply(this, args);
+            if (value.data_) applyOverrides(value.data_, ytcfgOverrides);
+            return result;
+          };
+        }
+      });
+      module.exports = {
+        overrideEnv,
+        ytcfgOverrides,
+        environmentOverrides
+      };
+    }
+  });
+
+  // tv/shims/css.js
+  var require_css = __commonJS({
+    "tv/shims/css.js"(exports, module) {
+      var sheets = /* @__PURE__ */ new Map();
+      function apply() {
+        if ("adoptedStyleSheets" in document && typeof CSSStyleSheet.prototype.replaceSync === "function") {
+          const ours = [...sheets.values()].map((x) => x.sheet).filter(Boolean);
+          document.adoptedStyleSheets = [...document.adoptedStyleSheets.filter((x) => !x.__shoal), ...ours];
+        }
+      }
+      async function inject(id, text) {
+        remove(id);
+        if ("adoptedStyleSheets" in document && typeof CSSStyleSheet.prototype.replaceSync === "function") {
+          const sheet = new CSSStyleSheet();
+          sheet.__shoal = true;
+          sheet.replaceSync(text);
+          sheets.set(id, { sheet });
+          apply();
+        } else {
+          if (!document.head) await new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
+          const node = document.createElement("style");
+          node.id = `vt-${id}`;
+          const nonce = document.querySelector("style[nonce],script[nonce]")?.nonce;
+          if (nonce) node.nonce = nonce;
+          node.textContent = text;
+          document.head.append(node);
+          sheets.set(id, { node });
+        }
+      }
+      function remove(id) {
+        const old = sheets.get(id);
+        old?.node?.remove();
+        sheets.delete(id);
+        apply();
+      }
+      module.exports = { inject, delete: remove };
+    }
+  });
+
+  // tv/touch.js
+  var require_touch = __commonJS({
+    "tv/touch.js"(exports, module) {
+      var overrides = require_configOverrides();
+      var css = require_css();
+      function scrollTarget(node) {
+        for (let el = node; el && el !== document.body; el = el.parentElement) {
+          const style = getComputedStyle(el);
+          if (el.scrollHeight > el.clientHeight + 2 && /auto|scroll/.test(style.overflowY) || el.scrollWidth > el.clientWidth + 2 && /auto|scroll/.test(style.overflowX)) return el;
+        }
+        return null;
+      }
+      function press(code) {
+        for (const type of ["keydown", "keyup"]) {
+          const event = new Event(type, { bubbles: true });
+          Object.defineProperty(event, "keyCode", { value: code });
+          Object.defineProperty(event, "key", { value: { 32780: "ArrowUp", 32781: "ArrowDown", 32782: "ArrowLeft", 32783: "ArrowRight" }[code] });
+          document.dispatchEvent(event);
+        }
+      }
+      module.exports = () => {
+        overrides.environmentOverrides.push({ flags: { enable_touch_support: true } });
+        css.inject("android-touch", "yt-virtual-list,.ogHbMc{touch-action:none!important} #vt-settings-overlay-root.vt-settings-hidden{display:none!important}");
+        let gesture = null, suppressClickUntil = 0;
+        window.addEventListener("pointerdown", (e) => {
+          if (e.pointerType !== "touch" || !e.isPrimary) return;
+          if (e.target.closest("#vt-settings-overlay-root")) return;
+          document.documentElement.classList.add("vt-touch-input");
+          gesture = { id: e.pointerId, target: e.target, scroll: scrollTarget(e.target), x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false, remainder: 0 };
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }, { capture: true, passive: false });
+        window.addEventListener("pointermove", (e) => {
+          if (!gesture || e.pointerId !== gesture.id) return;
+          const g = gesture, dx = e.clientX - g.x, dy = e.clientY - g.y;
+          g.x = e.clientX;
+          g.y = e.clientY;
+          if (Math.hypot(e.clientX - g.startX, e.clientY - g.startY) > 8) g.moved = true;
+          if (g.moved) {
+            if (g.scroll) g.scroll.scrollBy(-dx, -dy);
+            else {
+              const vertical = Math.abs(dy) >= Math.abs(dx);
+              g.remainder += vertical ? dy : dx;
+              while (Math.abs(g.remainder) >= 48) {
+                press(vertical ? g.remainder < 0 ? 32781 : 32780 : g.remainder < 0 ? 32783 : 32782);
+                g.remainder += g.remainder < 0 ? 48 : -48;
+              }
+            }
+          }
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }, { capture: true, passive: false });
+        const finish = (e) => {
+          if (!gesture || e.pointerId !== gesture.id) return;
+          const g = gesture;
+          gesture = null;
+          suppressClickUntil = Date.now() + 400;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (e.type === "pointercancel" || g.moved) return;
+          const hit = document.elementFromPoint(e.clientX, e.clientY);
+          if (!hit || !(g.target === hit || g.target.contains(hit) || hit.contains(g.target))) return;
+          const node = hit.closest('.vt-focusable,a,button,[role="button"],[tabindex],.yt-focusable') || hit;
+          node.focus?.({ preventScroll: true });
+          for (const type of ["mouseover", "mousemove", "mousedown", "mouseup", "click"]) node.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX: e.clientX, clientY: e.clientY, button: 0 }));
+        };
+        window.addEventListener("pointerup", finish, { capture: true, passive: false });
+        window.addEventListener("pointercancel", finish, { capture: true, passive: false });
+        window.addEventListener("click", (e) => {
+          if (e.isTrusted && Date.now() < suppressClickUntil) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+        window.addEventListener("blur", () => {
+          gesture = null;
+        });
+      };
+    }
+  });
+
+  // tv/vacuumtube/preload/util/jsonModifiers.js
   var require_jsonModifiers = __commonJS({
-    "vacuumtube/preload/util/jsonModifiers.js"(exports, module) {
+    "tv/vacuumtube/preload/util/jsonModifiers.js"(exports, module) {
       var modifiers = [];
       var jsonParse = JSON.parse;
       JSON.parse = function(...args) {
@@ -314,13 +498,13 @@
   // vt:vt:config-defaults
   var require_vt_config_defaults = __commonJS({
     "vt:vt:config-defaults"(exports, module) {
-      module.exports = { "volume": 100, "adblock": true, "sponsorblock": false, "sponsorblock_uuid": crypto.randomUUID(), "sponsorblock_skip_sponsor": true, "sponsorblock_skip_selfpromo": false, "sponsorblock_skip_interaction": false, "sponsorblock_skip_intro": false, "sponsorblock_skip_outro": false, "sponsorblock_skip_preview": false, "sponsorblock_skip_hook": false, "sponsorblock_skip_filler": false, "dearrow": false, "dislikes": false, "remove_super_resolution": false, "hide_shorts": false, "block_continue_watching": false, "h264ify": false, "h264ify_disable_webm": true, "h264ify_disable_vp8": true, "h264ify_disable_vp9": true, "h264ify_disable_av1": true, "unlock_resolution": false, "hardware_decoding": true, "wayland_hdr": false, "low_memory_mode": false, "fullscreen": false, "features_enabled": false, "music_mode_feature": false, "music_mode": false, "ultrawide_feature": false, "remaining_time_feature": false, "no_window_decorations": false, "keep_on_top": false, "pause_on_blur": false, "userstyles": false, "disabled_userstyles": [], "touch_overlay": true, "controller_support": true, "device_discoverability": false, "auto_update": false };
+      module.exports = { "volume": 100, "adblock": true, "sponsorblock": false, "sponsorblock_uuid": crypto.randomUUID(), "sponsorblock_skip_sponsor": true, "sponsorblock_skip_selfpromo": false, "sponsorblock_skip_interaction": false, "sponsorblock_skip_intro": false, "sponsorblock_skip_outro": false, "sponsorblock_skip_preview": false, "sponsorblock_skip_hook": false, "sponsorblock_skip_filler": false, "dearrow": false, "dislikes": false, "remove_super_resolution": false, "hide_shorts": false, "block_continue_watching": false, "h264ify": false, "h264ify_disable_webm": true, "h264ify_disable_vp8": true, "h264ify_disable_vp9": true, "h264ify_disable_av1": true, "unlock_resolution": false, "hardware_decoding": true, "wayland_hdr": false, "low_memory_mode": false, "fullscreen": false, "features_enabled": false, "music_mode_feature": false, "music_mode": false, "ultrawide_feature": false, "remaining_time_feature": false, "no_window_decorations": false, "keep_on_top": false, "pause_on_blur": false, "userstyles": false, "disabled_userstyles": [], "touch_overlay": false, "controller_support": true, "device_discoverability": false, "auto_update": false };
     }
   });
 
-  // shims/electron.js
+  // tv/shims/electron.js
   var require_electron = __commonJS({
-    "shims/electron.js"(exports, module) {
+    "tv/shims/electron.js"(exports, module) {
       var defaults = require_vt_config_defaults();
       var bridge = window.PufferfishTV;
       var listeners = {};
@@ -345,7 +529,7 @@
           app = JSON.parse(bridge.getAppDefaults() || "{}");
         } catch {
         }
-        return { ...defaults, ...app, ...stored };
+        return { ...defaults, ...app, ...stored, touch_overlay: false };
       }
       function open(url) {
         bridge.openUrl(url);
@@ -356,7 +540,7 @@
         latestVersion: "",
         platform: "android",
         arch: "arm64",
-        installationType: "pufferfish",
+        installationType: "swordfish",
         canAutoUpdate: false,
         progress: null
       });
@@ -419,9 +603,9 @@
     }
   });
 
-  // vacuumtube/preload/config.js
+  // tv/vacuumtube/preload/config.js
   var require_config = __commonJS({
-    "vacuumtube/preload/config.js"(exports, module) {
+    "tv/vacuumtube/preload/config.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var config = ipcRenderer.sendSync("get-config");
       var sharedConfig = { ...config };
@@ -444,9 +628,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/adblock.js
+  // tv/vacuumtube/preload/modules/adblock.js
   var require_adblock = __commonJS({
-    "vacuumtube/preload/modules/adblock.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/adblock.js"(exports, module) {
       var jsonMod = require_jsonModifiers();
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
@@ -502,9 +686,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/block-continue-watching.js
+  // tv/vacuumtube/preload/modules/block-continue-watching.js
   var require_block_continue_watching = __commonJS({
-    "vacuumtube/preload/modules/block-continue-watching.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/block-continue-watching.js"(exports, module) {
       var jsonMod = require_jsonModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -523,9 +707,9 @@
     }
   });
 
-  // vacuumtube/preload/util/resolveCommandModifiers.js
+  // tv/vacuumtube/preload/util/resolveCommandModifiers.js
   var require_resolveCommandModifiers = __commonJS({
-    "vacuumtube/preload/util/resolveCommandModifiers.js"(exports, module) {
+    "tv/vacuumtube/preload/util/resolveCommandModifiers.js"(exports, module) {
       var inputModifiers = [];
       var outputModifiers = [];
       var globalResolveCommand;
@@ -572,9 +756,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/block-sign-in-popup.js
+  // tv/vacuumtube/preload/modules/block-sign-in-popup.js
   var require_block_sign_in_popup = __commonJS({
-    "vacuumtube/preload/modules/block-sign-in-popup.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/block-sign-in-popup.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       module.exports = () => {
         rcMod.addInputModifier((c) => {
@@ -585,80 +769,16 @@
     }
   });
 
-  // shims/os.js
+  // tv/shims/os.js
   var require_os = __commonJS({
-    "shims/os.js"(exports, module) {
+    "tv/shims/os.js"(exports, module) {
       module.exports = { hostname: () => "Shoal", platform: () => "android", release: () => "", arch: () => "arm64", networkInterfaces: () => ({}), type: () => "Linux" };
     }
   });
 
-  // vacuumtube/preload/util/configOverrides.js
-  var require_configOverrides = __commonJS({
-    "vacuumtube/preload/util/configOverrides.js"(exports, module) {
-      var functions = require_functions();
-      var ytcfgOverrides = [];
-      var environmentOverrides = [];
-      function overrideEnv(key, value) {
-        let params = new URLSearchParams(window.location.search);
-        key = String(key);
-        value = String(value);
-        let existing = params.has(key);
-        if (existing) {
-          if (value === existing) return;
-          params.delete(key);
-        }
-        params.set(key, value);
-        let newUrl = window.location.pathname + "?" + params.toString();
-        history.replaceState(null, "", newUrl);
-      }
-      function applyOverrides(target, overrides) {
-        for (let override of overrides) {
-          try {
-            functions.deepMerge(target, override);
-          } catch (err) {
-            console.error("a config override failed", err);
-          }
-        }
-      }
-      var environment;
-      Object.defineProperty(window, "environment", {
-        configurable: true,
-        get() {
-          return environment;
-        },
-        set(value) {
-          applyOverrides(value, environmentOverrides);
-          environment = value;
-        }
-      });
-      var ytcfg;
-      Object.defineProperty(window, "ytcfg", {
-        configurable: true,
-        get() {
-          return ytcfg;
-        },
-        set(value) {
-          ytcfg = value;
-          let set = value?.set;
-          if (typeof set !== "function") return;
-          value.set = function(...args) {
-            let result = set.apply(this, args);
-            if (value.data_) applyOverrides(value.data_, ytcfgOverrides);
-            return result;
-          };
-        }
-      });
-      module.exports = {
-        overrideEnv,
-        ytcfgOverrides,
-        environmentOverrides
-      };
-    }
-  });
-
-  // vacuumtube/preload/modules/cast-label.js
+  // tv/vacuumtube/preload/modules/cast-label.js
   var require_cast_label = __commonJS({
-    "vacuumtube/preload/modules/cast-label.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/cast-label.js"(exports, module) {
       var os = require_os();
       var configOverrides = require_configOverrides();
       var hostname = os.hostname();
@@ -676,9 +796,9 @@
     }
   });
 
-  // node_modules/events/events.js
+  // tv/node_modules/events/events.js
   var require_events = __commonJS({
-    "node_modules/events/events.js"(exports, module) {
+    "tv/node_modules/events/events.js"(exports, module) {
       "use strict";
       var R = typeof Reflect === "object" ? Reflect : null;
       var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply2(target, receiver, args) {
@@ -1045,9 +1165,9 @@
     }
   });
 
-  // vacuumtube/preload/util/controller.js
+  // tv/vacuumtube/preload/util/controller.js
   var require_controller = __commonJS({
-    "vacuumtube/preload/util/controller.js"(exports, module) {
+    "tv/vacuumtube/preload/util/controller.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var { EventEmitter } = require_events();
       var emitter = new EventEmitter();
@@ -1166,9 +1286,9 @@
     }
   });
 
-  // vacuumtube/preload/util/ui.js
+  // tv/vacuumtube/preload/util/ui.js
   var require_ui = __commonJS({
-    "vacuumtube/preload/util/ui.js"(exports, module) {
+    "tv/vacuumtube/preload/util/ui.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       function toast(title, subtitle) {
         let toastCommand = {
@@ -1267,7 +1387,7 @@
   // vt:vt:files
   var require_vt_files = __commonJS({
     "vt:vt:files"(exports, module) {
-      module.exports = { "/vt/src/preload/modules/settings/style.css": { "text": "/*\nsettings overlay\nstyles the frame and the generic row types from render.js only\n*/\n\n#vt-settings-overlay-root {\n    --vt-bg: #212121;\n    --vt-card: #2b2b2b;\n    --vt-card-hover: #333;\n    --vt-card-focus: #3a3a3a;\n    --vt-line: #383838;\n    --vt-text: #fff;\n    --vt-muted: #aaa;\n    --vt-faint: #808080;\n    --vt-focus: #fff;\n    --vt-warning-bg: #332b18;\n    --vt-warning-line: #6f5a25;\n    --vt-radius: 12px;\n\n    position: fixed;\n    inset: 0;\n    z-index: 99999;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    transition: opacity 0.2s ease;\n\n    /*own every inheritable base value instead of inheriting youtube's styling on <body>*/\n    font-family: 'YouTube Sans', Roboto, Arial, sans-serif;\n    font-size: 15px;\n    font-weight: 400;\n    font-style: normal;\n    line-height: normal;\n    letter-spacing: normal;\n    text-align: left;\n    text-transform: none;\n    white-space: normal;\n    color: var(--vt-text);\n    cursor: default;\n    user-select: none;\n}\n\n#vt-settings-overlay-root,\n#vt-settings-overlay-root * {\n    box-sizing: border-box;\n}\n\n#vt-settings-overlay-root.vt-settings-hidden {\n    opacity: 0;\n    pointer-events: none;\n}\n\n.vt-settings-backdrop {\n    position: absolute;\n    inset: 0;\n    background: rgba(0, 0, 0, 0.85);\n}\n\n.vt-settings-container {\n    position: relative;\n    width: min(1100px, 90vw);\n    height: min(760px, 86vh);\n    background: var(--vt-bg);\n    border-radius: 18px;\n    display: flex;\n    flex-direction: column;\n    overflow: hidden;\n    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);\n}\n\n/*header*/\n\n.vt-settings-header {\n    display: flex;\n    align-items: center;\n    gap: 24px;\n    padding: 24px 32px 18px;\n}\n\n.vt-settings-title {\n    font-size: 28px;\n    font-weight: 700;\n}\n\n.vt-settings-hint {\n    margin-left: auto;\n    font-size: 14px;\n    color: var(--vt-muted);\n}\n\n.vt-settings-icon-button {\n    width: 40px;\n    height: 40px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex-shrink: 0;\n    border-radius: 50%;\n    font-size: 20px;\n    color: var(--vt-muted);\n    cursor: pointer;\n}\n\n.vt-settings-icon-button + .vt-settings-icon-button {\n    margin-left: -16px;\n}\n\n.vt-settings-icon-button:hover,\n.vt-settings-icon-button.vt-focused {\n    background: var(--vt-card-hover);\n    color: var(--vt-text);\n}\n\n/*category tabs*/\n\n.vt-tabbar {\n    display: flex;\n    gap: 8px;\n    padding: 12px 28px;\n    border-top: 1px solid var(--vt-line);\n    border-bottom: 1px solid var(--vt-line);\n    overflow: hidden;\n}\n\n.vt-tab {\n    padding: 10px 16px;\n    border-radius: 10px;\n    font-size: 16px;\n    font-weight: 500;\n    white-space: nowrap;\n    cursor: pointer;\n}\n\n.vt-tab:hover {\n    background: var(--vt-card-hover);\n}\n\n.vt-tab.vt-tab-selected {\n    background: var(--vt-text);\n    color: var(--vt-bg);\n}\n\n/*tabs keep their own background when focused and get an outer ring instead*/\n.vt-tabbar .vt-tab.vt-focused {\n    background: var(--vt-card-hover);\n    box-shadow: 0 0 0 2px var(--vt-bg), 0 0 0 4px var(--vt-focus);\n}\n\n.vt-tabbar .vt-tab.vt-tab-selected.vt-focused {\n    background: var(--vt-text);\n}\n\n/*content*/\n\n.vt-content-viewport {\n    position: relative;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n}\n\n.vt-content-list {\n    padding: 24px 28px 16px;\n    transition: transform 0.15s ease-out;\n}\n\n.vt-view-header {\n    display: flex;\n    align-items: flex-end;\n    gap: 16px;\n    margin-bottom: 16px;\n}\n\n.vt-view-title {\n    margin: 0;\n    font-size: 24px;\n    font-weight: 700;\n}\n\n.vt-view-description {\n    margin: 6px 0 0;\n    font-size: 15px;\n    color: var(--vt-muted);\n}\n\n.vt-view-count {\n    margin-left: auto;\n    font-size: 13px;\n    color: var(--vt-faint);\n    white-space: nowrap;\n}\n\n.vt-view-icon {\n    width: 64px;\n    height: 64px;\n    flex-shrink: 0;\n    align-self: center;\n    border-radius: 14px;\n}\n\n.vt-view-badge {\n    align-self: center;\n    margin-left: auto;\n    padding: 6px 12px;\n    border-radius: 8px;\n    background: var(--vt-card-hover);\n    font-size: 14px;\n    white-space: nowrap;\n}\n\n.vt-view-page > .vt-section + .vt-section {\n    margin-top: 16px;\n}\n\n.vt-section-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));\n    gap: 24px 20px;\n    align-items: start;\n}\n\n.vt-section-title {\n    margin: 0 0 10px 2px;\n    font-size: 12px;\n    font-weight: 600;\n    letter-spacing: 0.08em;\n    text-transform: uppercase;\n    color: var(--vt-muted);\n}\n\n.vt-card {\n    display: flex;\n    flex-direction: column;\n    background: var(--vt-card);\n    border-radius: var(--vt-radius);\n}\n\n.vt-view-page .vt-card {\n    max-width: 760px;\n}\n\n/*rows*/\n\n.vt-row {\n    display: flex;\n    align-items: center;\n    gap: 16px;\n    min-height: 60px;\n    padding: 12px 16px;\n    cursor: pointer;\n}\n\n.vt-card > * + * {\n    border-top: 1px solid var(--vt-line);\n}\n\n.vt-card > :first-child {\n    border-top-left-radius: var(--vt-radius);\n    border-top-right-radius: var(--vt-radius);\n}\n\n.vt-card > :last-child {\n    border-bottom-left-radius: var(--vt-radius);\n    border-bottom-right-radius: var(--vt-radius);\n}\n\n.vt-row.vt-focused {\n    border-radius: var(--vt-radius);\n}\n\n.vt-row:hover {\n    background: var(--vt-card-hover);\n}\n\n.vt-row.vt-row-static {\n    min-height: 48px;\n    cursor: default;\n}\n\n.vt-row.vt-row-static:hover {\n    background: none;\n}\n\n.vt-row-static .vt-row-value {\n    color: var(--vt-text);\n}\n\n.vt-focusable.vt-focused {\n    background: var(--vt-card-focus);\n    box-shadow: inset 0 0 0 2px var(--vt-focus);\n    border-color: transparent;\n}\n\n.vt-focused + * {\n    border-color: transparent;\n}\n\n/*a toggle's page link, tucked under it while the toggle is on*/\n.vt-card > .vt-row-sub {\n    min-height: 44px;\n    padding: 4px 16px 12px 32px;\n    border-top: none;\n}\n\n.vt-row-sub .vt-row-title {\n    font-size: 14px;\n    color: var(--vt-muted);\n}\n\n.vt-row-sub.vt-focused .vt-row-title {\n    color: var(--vt-text);\n}\n\n.vt-row-info {\n    display: flex;\n    flex-direction: column;\n    gap: 3px;\n    flex: 1;\n    min-width: 0;\n}\n\n.vt-row-title {\n    font-size: 16px;\n    font-weight: 500;\n}\n\n.vt-row-description {\n    font-size: 13px;\n    line-height: 1.35;\n    color: var(--vt-muted);\n}\n\n.vt-row-value {\n    font-size: 14px;\n    color: var(--vt-muted);\n    white-space: nowrap;\n}\n\n.vt-chevron {\n    font-size: 24px;\n    line-height: 1;\n    color: var(--vt-muted);\n}\n\n.vt-inactive {\n    opacity: 0.4;\n    cursor: default;\n}\n\n.vt-inactive:hover {\n    background: none;\n}\n\n/*toggle*/\n\n.vt-toggle {\n    position: relative;\n    flex-shrink: 0;\n    width: 50px;\n    height: 28px;\n    border-radius: 14px;\n    background: #555;\n    transition: background 0.15s ease;\n}\n\n.vt-toggle-thumb {\n    position: absolute;\n    top: 3px;\n    left: 3px;\n    width: 22px;\n    height: 22px;\n    border-radius: 50%;\n    background: var(--vt-text);\n    transition: transform 0.15s ease, background 0.15s ease;\n}\n\n.vt-toggle.vt-toggle-on {\n    background: var(--vt-text);\n}\n\n.vt-toggle.vt-toggle-on .vt-toggle-thumb {\n    transform: translateX(22px);\n    background: var(--vt-bg);\n}\n\n/*notice and text*/\n\n.vt-notice {\n    margin: 8px;\n    padding: 12px 14px;\n    border: 1px solid var(--vt-line);\n    border-radius: 10px;\n}\n\n.vt-card > .vt-notice + * {\n    border-top: none;\n}\n\n.vt-notice-warning {\n    background: var(--vt-warning-bg);\n    border-color: var(--vt-warning-line);\n}\n\n.vt-notice-warning .vt-row-description {\n    color: #e0d2b0;\n}\n\n.vt-notice-success {\n    background: #173524;\n    border-color: #2b6a45;\n}\n\n.vt-notice-success .vt-row-description {\n    color: #b5dcc3;\n}\n\n.vt-notice-error {\n    background: #3a1c1c;\n    border-color: #7a3434;\n}\n\n.vt-notice-error .vt-row-description {\n    color: #f0c0c0;\n}\n\n.vt-text {\n    padding: 10px 16px;\n    font-size: 14px;\n    color: var(--vt-muted);\n}\n\n/*translation prompt under a category*/\n\n.vt-translate {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    width: fit-content;\n    margin-top: 16px;\n    padding: 6px 14px;\n    border-radius: 999px;\n    font-size: 14px;\n    color: var(--vt-muted);\n    cursor: pointer;\n}\n\n.vt-translate:hover,\n.vt-translate.vt-focused {\n    color: var(--vt-text);\n}\n\n/*back button on pages*/\n\n.vt-back {\n    display: inline-flex;\n    align-items: center;\n    gap: 8px;\n    margin-bottom: 14px;\n    padding: 6px 14px 6px 10px;\n    border-radius: 999px;\n    font-size: 14px;\n    color: var(--vt-muted);\n    cursor: pointer;\n}\n\n.vt-back:hover {\n    background: var(--vt-card-hover);\n}\n\n.vt-back.vt-focused {\n    color: var(--vt-text);\n}\n\n/*scrollbar*/\n\n.vt-scrollbar {\n    position: absolute;\n    top: 0;\n    bottom: 0;\n    right: 6px;\n    width: 4px;\n    display: none;\n}\n\n.vt-scrollbar.vt-scrollbar-visible {\n    display: block;\n}\n\n.vt-scrollbar-thumb {\n    width: 100%;\n    border-radius: 2px;\n    background: #666;\n    transition: transform 0.15s ease-out;\n}" }, "/vt/src/preload/modules/speed-control/style.css": { "text": "#vt-speed-indicator {\n    position: fixed;\n    bottom: 80px;\n    left: 50%;\n    transform: translateX(-50%);\n    background-color: rgba(0, 0, 0, 0.5);\n    color: white;\n    padding: 12px 24px;\n    border-radius: 1.5rem;\n    display: flex;\n    align-items: center;\n    z-index: 999999;\n    opacity: 0;\n    transition: opacity 0.3s ease-in-out;\n    pointer-events: none;\n}\n\n#vt-speed-indicator.visible {\n    opacity: 1;\n}\n\n.vt-speed-icon {\n    width: 24px;\n    height: 24px;\n    margin-right: 16px;\n    font-size: 24px;\n    font-family: 'YouTube Icons Outlined';\n}\n\n.vt-speed-icon::before {\n    content: '\\edf6';\n}\n\n.vt-speed-text {\n    font-size: 18px;\n    font-weight: 500;\n    min-width: 30px;\n    text-align: right;\n}" }, "/vt/src/preload/modules/volume-control/style.css": { "text": `div[idomkey="lazy-mdx-volume"] { /*hide ugly legacy volume indicator that appears when setVolume is called on player*/
+      module.exports = { "/vt/src/preload/modules/settings/style.css": { "text": "/*\nsettings overlay\nstyles the frame and the generic row types from render.js only\n*/\n\n#vt-settings-overlay-root {\n    --vt-bg: #212121;\n    --vt-card: #2b2b2b;\n    --vt-card-hover: #333;\n    --vt-card-focus: #3a3a3a;\n    --vt-line: #383838;\n    --vt-text: #fff;\n    --vt-muted: #aaa;\n    --vt-faint: #808080;\n    --vt-focus: #fff;\n    --vt-warning-bg: #332b18;\n    --vt-warning-line: #6f5a25;\n    --vt-radius: 12px;\n\n    position: fixed;\n    inset: 0;\n    z-index: 99999;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    transition: opacity 0.2s ease;\n\n    /*own every inheritable base value instead of inheriting youtube's styling on <body>*/\n    font-family: 'YouTube Sans', Roboto, Arial, sans-serif;\n    font-size: 15px;\n    font-weight: 400;\n    font-style: normal;\n    line-height: normal;\n    letter-spacing: normal;\n    text-align: left;\n    text-transform: none;\n    white-space: normal;\n    color: var(--vt-text);\n    cursor: default;\n    user-select: none;\n}\n\n#vt-settings-overlay-root,\n#vt-settings-overlay-root * {\n    box-sizing: border-box;\n}\n\n#vt-settings-overlay-root.vt-settings-hidden {\n    display: none !important;\n    opacity: 0;\n    pointer-events: none;\n}\n\n.vt-settings-backdrop {\n    position: absolute;\n    inset: 0;\n    background: rgba(0, 0, 0, 0.85);\n}\n\n.vt-settings-container {\n    position: relative;\n    width: min(1100px, 90vw);\n    height: min(760px, 86vh);\n    background: var(--vt-bg);\n    border-radius: 18px;\n    display: flex;\n    flex-direction: column;\n    overflow: hidden;\n    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);\n}\n\n/*header*/\n\n.vt-settings-header {\n    display: flex;\n    align-items: center;\n    gap: 24px;\n    padding: 24px 32px 18px;\n}\n\n.vt-settings-title {\n    font-size: 28px;\n    font-weight: 700;\n}\n\n.vt-settings-hint {\n    margin-left: auto;\n    font-size: 14px;\n    color: var(--vt-muted);\n}\n\n.vt-settings-icon-button {\n    width: 40px;\n    height: 40px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    flex-shrink: 0;\n    border-radius: 50%;\n    font-size: 20px;\n    color: var(--vt-muted);\n    cursor: pointer;\n}\n\n.vt-settings-icon-button + .vt-settings-icon-button {\n    margin-left: -16px;\n}\n\n.vt-settings-icon-button:hover,\n.vt-settings-icon-button.vt-focused {\n    background: var(--vt-card-hover);\n    color: var(--vt-text);\n}\n\n/*category tabs*/\n\n.vt-tabbar {\n    display: flex;\n    gap: 8px;\n    padding: 12px 28px;\n    border-top: 1px solid var(--vt-line);\n    border-bottom: 1px solid var(--vt-line);\n    overflow: hidden;\n}\n\n.vt-tab {\n    padding: 10px 16px;\n    border-radius: 10px;\n    font-size: 16px;\n    font-weight: 500;\n    white-space: nowrap;\n    cursor: pointer;\n}\n\n.vt-tab:hover {\n    background: var(--vt-card-hover);\n}\n\n.vt-tab.vt-tab-selected {\n    background: var(--vt-text);\n    color: var(--vt-bg);\n}\n\n/*tabs keep their own background when focused and get an outer ring instead*/\n.vt-tabbar .vt-tab.vt-focused {\n    background: var(--vt-card-hover);\n    box-shadow: 0 0 0 2px var(--vt-bg), 0 0 0 4px var(--vt-focus);\n}\n\n.vt-tabbar .vt-tab.vt-tab-selected.vt-focused {\n    background: var(--vt-text);\n}\n\n/*content*/\n\n.vt-content-viewport {\n    position: relative;\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;\n}\n\n.vt-content-list {\n    padding: 24px 28px 16px;\n    transition: transform 0.15s ease-out;\n}\n\n.vt-view-header {\n    display: flex;\n    align-items: flex-end;\n    gap: 16px;\n    margin-bottom: 16px;\n}\n\n.vt-view-title {\n    margin: 0;\n    font-size: 24px;\n    font-weight: 700;\n}\n\n.vt-view-description {\n    margin: 6px 0 0;\n    font-size: 15px;\n    color: var(--vt-muted);\n}\n\n.vt-view-count {\n    margin-left: auto;\n    font-size: 13px;\n    color: var(--vt-faint);\n    white-space: nowrap;\n}\n\n.vt-view-icon {\n    width: 64px;\n    height: 64px;\n    flex-shrink: 0;\n    align-self: center;\n    border-radius: 14px;\n}\n\n.vt-view-badge {\n    align-self: center;\n    margin-left: auto;\n    padding: 6px 12px;\n    border-radius: 8px;\n    background: var(--vt-card-hover);\n    font-size: 14px;\n    white-space: nowrap;\n}\n\n.vt-view-page > .vt-section + .vt-section {\n    margin-top: 16px;\n}\n\n.vt-section-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));\n    gap: 24px 20px;\n    align-items: start;\n}\n\n.vt-section-title {\n    margin: 0 0 10px 2px;\n    font-size: 12px;\n    font-weight: 600;\n    letter-spacing: 0.08em;\n    text-transform: uppercase;\n    color: var(--vt-muted);\n}\n\n.vt-card {\n    display: flex;\n    flex-direction: column;\n    background: var(--vt-card);\n    border-radius: var(--vt-radius);\n}\n\n.vt-view-page .vt-card {\n    max-width: 760px;\n}\n\n/*rows*/\n\n.vt-row {\n    display: flex;\n    align-items: center;\n    gap: 16px;\n    min-height: 60px;\n    padding: 12px 16px;\n    cursor: pointer;\n}\n\n.vt-card > * + * {\n    border-top: 1px solid var(--vt-line);\n}\n\n.vt-card > :first-child {\n    border-top-left-radius: var(--vt-radius);\n    border-top-right-radius: var(--vt-radius);\n}\n\n.vt-card > :last-child {\n    border-bottom-left-radius: var(--vt-radius);\n    border-bottom-right-radius: var(--vt-radius);\n}\n\n.vt-row.vt-focused {\n    border-radius: var(--vt-radius);\n}\n\n.vt-row:hover {\n    background: var(--vt-card-hover);\n}\n\n.vt-row.vt-row-static {\n    min-height: 48px;\n    cursor: default;\n}\n\n.vt-row.vt-row-static:hover {\n    background: none;\n}\n\n.vt-row-static .vt-row-value {\n    color: var(--vt-text);\n}\n\n.vt-focusable.vt-focused {\n    background: var(--vt-card-focus);\n    box-shadow: inset 0 0 0 2px var(--vt-focus);\n    border-color: transparent;\n}\n\n.vt-focused + * {\n    border-color: transparent;\n}\n\n/*a toggle's page link, tucked under it while the toggle is on*/\n.vt-card > .vt-row-sub {\n    min-height: 44px;\n    padding: 4px 16px 12px 32px;\n    border-top: none;\n}\n\n.vt-row-sub .vt-row-title {\n    font-size: 14px;\n    color: var(--vt-muted);\n}\n\n.vt-row-sub.vt-focused .vt-row-title {\n    color: var(--vt-text);\n}\n\n.vt-row-info {\n    display: flex;\n    flex-direction: column;\n    gap: 3px;\n    flex: 1;\n    min-width: 0;\n}\n\n.vt-row-title {\n    font-size: 16px;\n    font-weight: 500;\n}\n\n.vt-row-description {\n    font-size: 13px;\n    line-height: 1.35;\n    color: var(--vt-muted);\n}\n\n.vt-row-value {\n    font-size: 14px;\n    color: var(--vt-muted);\n    white-space: nowrap;\n}\n\n.vt-chevron {\n    font-size: 24px;\n    line-height: 1;\n    color: var(--vt-muted);\n}\n\n.vt-inactive {\n    opacity: 0.4;\n    cursor: default;\n}\n\n.vt-inactive:hover {\n    background: none;\n}\n\n/*toggle*/\n\n.vt-toggle {\n    position: relative;\n    flex-shrink: 0;\n    width: 50px;\n    height: 28px;\n    border-radius: 14px;\n    background: #555;\n    transition: background 0.15s ease;\n}\n\n.vt-toggle-thumb {\n    position: absolute;\n    top: 3px;\n    left: 3px;\n    width: 22px;\n    height: 22px;\n    border-radius: 50%;\n    background: var(--vt-text);\n    transition: transform 0.15s ease, background 0.15s ease;\n}\n\n.vt-toggle.vt-toggle-on {\n    background: var(--vt-text);\n}\n\n.vt-toggle.vt-toggle-on .vt-toggle-thumb {\n    transform: translateX(22px);\n    background: var(--vt-bg);\n}\n\n/*notice and text*/\n\n.vt-notice {\n    margin: 8px;\n    padding: 12px 14px;\n    border: 1px solid var(--vt-line);\n    border-radius: 10px;\n}\n\n.vt-card > .vt-notice + * {\n    border-top: none;\n}\n\n.vt-notice-warning {\n    background: var(--vt-warning-bg);\n    border-color: var(--vt-warning-line);\n}\n\n.vt-notice-warning .vt-row-description {\n    color: #e0d2b0;\n}\n\n.vt-notice-success {\n    background: #173524;\n    border-color: #2b6a45;\n}\n\n.vt-notice-success .vt-row-description {\n    color: #b5dcc3;\n}\n\n.vt-notice-error {\n    background: #3a1c1c;\n    border-color: #7a3434;\n}\n\n.vt-notice-error .vt-row-description {\n    color: #f0c0c0;\n}\n\n.vt-text {\n    padding: 10px 16px;\n    font-size: 14px;\n    color: var(--vt-muted);\n}\n\n/*translation prompt under a category*/\n\n.vt-translate {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    width: fit-content;\n    margin-top: 16px;\n    padding: 6px 14px;\n    border-radius: 999px;\n    font-size: 14px;\n    color: var(--vt-muted);\n    cursor: pointer;\n}\n\n.vt-translate:hover,\n.vt-translate.vt-focused {\n    color: var(--vt-text);\n}\n\n/*back button on pages*/\n\n.vt-back {\n    display: inline-flex;\n    align-items: center;\n    gap: 8px;\n    margin-bottom: 14px;\n    padding: 6px 14px 6px 10px;\n    border-radius: 999px;\n    font-size: 14px;\n    color: var(--vt-muted);\n    cursor: pointer;\n}\n\n.vt-back:hover {\n    background: var(--vt-card-hover);\n}\n\n.vt-back.vt-focused {\n    color: var(--vt-text);\n}\n\n/*scrollbar*/\n\n.vt-scrollbar {\n    position: absolute;\n    top: 0;\n    bottom: 0;\n    right: 6px;\n    width: 4px;\n    display: none;\n}\n\n.vt-scrollbar.vt-scrollbar-visible {\n    display: block;\n}\n\n.vt-scrollbar-thumb {\n    width: 100%;\n    border-radius: 2px;\n    background: #666;\n    transition: transform 0.15s ease-out;\n}" }, "/vt/src/preload/modules/speed-control/style.css": { "text": "#vt-speed-indicator {\n    position: fixed;\n    bottom: 80px;\n    left: 50%;\n    transform: translateX(-50%);\n    background-color: rgba(0, 0, 0, 0.5);\n    color: white;\n    padding: 12px 24px;\n    border-radius: 1.5rem;\n    display: flex;\n    align-items: center;\n    z-index: 999999;\n    opacity: 0;\n    transition: opacity 0.3s ease-in-out;\n    pointer-events: none;\n}\n\n#vt-speed-indicator.visible {\n    opacity: 1;\n}\n\n.vt-speed-icon {\n    width: 24px;\n    height: 24px;\n    margin-right: 16px;\n    font-size: 24px;\n    font-family: 'YouTube Icons Outlined';\n}\n\n.vt-speed-icon::before {\n    content: '\\edf6';\n}\n\n.vt-speed-text {\n    font-size: 18px;\n    font-weight: 500;\n    min-width: 30px;\n    text-align: right;\n}" }, "/vt/src/preload/modules/volume-control/style.css": { "text": `div[idomkey="lazy-mdx-volume"] { /*hide ugly legacy volume indicator that appears when setVolume is called on player*/
     display: none;
 }
 
@@ -1910,9 +2030,9 @@
     }
   });
 
-  // shims/path.js
+  // tv/shims/path.js
   var require_path = __commonJS({
-    "shims/path.js"(exports, module) {
+    "tv/shims/path.js"(exports, module) {
       function normalize(p) {
         const abs = p.startsWith("/");
         const out = [];
@@ -1945,9 +2065,9 @@
     }
   });
 
-  // shims/fs.js
+  // tv/shims/fs.js
   var require_fs = __commonJS({
-    "shims/fs.js"(exports, module) {
+    "tv/shims/fs.js"(exports, module) {
       var files = require_vt_files();
       function norm(p) {
         return require_path().normalize(p);
@@ -1997,9 +2117,9 @@
     }
   });
 
-  // vacuumtube/preload/util/localeProvider.js
+  // tv/vacuumtube/preload/util/localeProvider.js
   var require_localeProvider = __commonJS({
-    "vacuumtube/preload/util/localeProvider.js"(exports, module) {
+    "tv/vacuumtube/preload/util/localeProvider.js"(exports, module) {
       var __dirname = "/vt/src/preload/util";
       var fs = require_fs();
       var path = require_path();
@@ -2068,9 +2188,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/controller-support.js
+  // tv/vacuumtube/preload/modules/controller-support.js
   var require_controller_support = __commonJS({
-    "vacuumtube/preload/modules/controller-support.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/controller-support.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var controller = require_controller();
       var ui = require_ui();
@@ -2121,61 +2241,9 @@
     }
   });
 
-  // vacuumtube/preload/util/css.js
-  var require_css = __commonJS({
-    "vacuumtube/preload/util/css.js"(exports, module) {
-      var functions = require_functions();
-      var injectedStyles = {};
-      var ready = false;
-      var observer;
-      async function injectStyle(id, text) {
-        await functions.waitForCondition(() => ready);
-        const styleId = `vt-${id}`;
-        const existingStyle = document.getElementById(styleId);
-        if (existingStyle) {
-          existingStyle.remove();
-        }
-        const style = document.createElement("style");
-        style.id = styleId;
-        style.type = "text/css";
-        style.textContent = text;
-        injectedStyles[id] = style;
-        reinjectStylesheets();
-      }
-      function deleteStyle(id) {
-        const styleId = `vt-${id}`;
-        const style = document.getElementById(styleId);
-        delete injectedStyles[id];
-        if (style) {
-          style.remove();
-        }
-      }
-      function reinjectStylesheets() {
-        observer.disconnect();
-        for (let style of Object.values(injectedStyles)) {
-          document.head.appendChild(style);
-        }
-        observer.observe(document.head, { childList: true });
-      }
-      async function main() {
-        await functions.waitForCondition(() => !!document.head);
-        observer = new MutationObserver(() => {
-          reinjectStylesheets();
-        });
-        observer.observe(document.head, { childList: true });
-        ready = true;
-      }
-      main();
-      module.exports = {
-        inject: injectStyle,
-        delete: deleteStyle
-      };
-    }
-  });
-
-  // vacuumtube/preload/modules/css.js
+  // tv/vacuumtube/preload/modules/css.js
   var require_css2 = __commonJS({
-    "vacuumtube/preload/modules/css.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/css.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules";
       var fs = require_fs();
       var path = require_path();
@@ -2188,9 +2256,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/dearrow.js
+  // tv/vacuumtube/preload/modules/dearrow.js
   var require_dearrow = __commonJS({
-    "vacuumtube/preload/modules/dearrow.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/dearrow.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -2299,9 +2367,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/disable-direct-sign-in.js
+  // tv/vacuumtube/preload/modules/disable-direct-sign-in.js
   var require_disable_direct_sign_in = __commonJS({
-    "vacuumtube/preload/modules/disable-direct-sign-in.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/disable-direct-sign-in.js"(exports, module) {
       var configOverrides = require_configOverrides();
       module.exports = async () => {
         configOverrides.environmentOverrides.push({
@@ -2313,9 +2381,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/encryption-notice.js
+  // tv/vacuumtube/preload/modules/encryption-notice.js
   var require_encryption_notice = __commonJS({
-    "vacuumtube/preload/modules/encryption-notice.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/encryption-notice.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       var localeProvider = require_localeProvider();
       module.exports = async () => {
@@ -2418,9 +2486,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/fix-exit.js
+  // tv/vacuumtube/preload/modules/fix-exit.js
   var require_fix_exit = __commonJS({
-    "vacuumtube/preload/modules/fix-exit.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/fix-exit.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       module.exports = () => {
         rcMod.addInputModifier((command) => {
@@ -2434,9 +2502,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/fix-reloads.js
+  // tv/vacuumtube/preload/modules/fix-reloads.js
   var require_fix_reloads = __commonJS({
-    "vacuumtube/preload/modules/fix-reloads.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/fix-reloads.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var rcMod = require_resolveCommandModifiers();
       module.exports = () => {
@@ -2449,9 +2517,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/fix-voice.js
+  // tv/vacuumtube/preload/modules/fix-voice.js
   var require_fix_voice = __commonJS({
-    "vacuumtube/preload/modules/fix-voice.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/fix-voice.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configOverrides = require_configOverrides();
       var functions = require_functions();
@@ -2523,9 +2591,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/guide-tabs.js
+  // tv/vacuumtube/preload/modules/guide-tabs.js
   var require_guide_tabs = __commonJS({
-    "vacuumtube/preload/modules/guide-tabs.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/guide-tabs.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -2559,9 +2627,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/h264ify.js
+  // tv/vacuumtube/preload/modules/h264ify.js
   var require_h264ify = __commonJS({
-    "vacuumtube/preload/modules/h264ify.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h264ify.js"(exports, module) {
       var configManager = require_config();
       var config = configManager.get();
       module.exports = () => {
@@ -2584,9 +2652,9 @@
     }
   });
 
-  // shims/unavailable.js
+  // tv/shims/unavailable.js
   var require_unavailable = __commonJS({
-    "shims/unavailable.js"(exports, module) {
+    "tv/shims/unavailable.js"(exports, module) {
       function inert() {
         const obj = {};
         for (const name of ["on", "once", "off", "bind", "listen", "close", "send", "setBroadcast", "setMulticastTTL", "addMembership", "dropMembership", "address", "removeAllListeners", "end", "write"]) {
@@ -2604,9 +2672,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/h5vcc/dial/net.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/net.js
   var require_net = __commonJS({
-    "vacuumtube/preload/modules/h5vcc/dial/net.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/net.js"(exports, module) {
       var os = require_os();
       var dgram = require_unavailable();
       function toInt(address) {
@@ -2663,9 +2731,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/h5vcc/dial/constants.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/constants.js
   var require_constants = __commonJS({
-    "vacuumtube/preload/modules/h5vcc/dial/constants.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/constants.js"(exports, module) {
       var os = require_os();
       var crypto2 = require_unavailable();
       var package2 = require_vt_package();
@@ -2696,9 +2764,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/h5vcc/dial/http.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/http.js
   var require_http = __commonJS({
-    "vacuumtube/preload/modules/h5vcc/dial/http.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/http.js"(exports, module) {
       var http = require_unavailable();
       var net = require_net();
       var constants = require_constants();
@@ -2748,9 +2816,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/h5vcc/dial/server.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/server.js
   var require_server = __commonJS({
-    "vacuumtube/preload/modules/h5vcc/dial/server.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/server.js"(exports, module) {
       var http = require_http();
       var constants = require_constants();
       var package2 = require_vt_package();
@@ -2870,9 +2938,9 @@
     }
   });
 
-  // vacuumtube/preload/modules/h5vcc/dial/discover.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/discover.js
   var require_discover = __commonJS({
-    "vacuumtube/preload/modules/h5vcc/dial/discover.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/discover.js"(exports, module) {
       var dgram = require_unavailable();
       var http = require_http();
       var net = require_net();
@@ -2982,9 +3050,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/h5vcc/index.js
+  // tv/vacuumtube/preload/modules/h5vcc/index.js
   var require_h5vcc = __commonJS({
-    "vacuumtube/preload/modules/h5vcc/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/index.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var http = require_http();
       var DialServer = require_server();
@@ -3073,9 +3141,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/hide-shorts.js
+  // tv/vacuumtube/preload/modules/hide-shorts.js
   var require_hide_shorts = __commonJS({
-    "vacuumtube/preload/modules/hide-shorts.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/hide-shorts.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -3095,9 +3163,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/util/patchFunction.js
+  // tv/vacuumtube/preload/util/patchFunction.js
   var require_patchFunction = __commonJS({
-    "vacuumtube/preload/util/patchFunction.js"(exports, module) {
+    "tv/vacuumtube/preload/util/patchFunction.js"(exports, module) {
       function patchFunction(obj, func, modifier) {
         let originalFunc = obj[func];
         let patched = function(...args) {
@@ -3109,9 +3177,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/util/shortcuts.js
+  // tv/vacuumtube/preload/util/shortcuts.js
   var require_shortcuts = __commonJS({
-    "vacuumtube/preload/util/shortcuts.js"(exports, module) {
+    "tv/vacuumtube/preload/util/shortcuts.js"(exports, module) {
       function isSettingsOpen() {
         let root = document.getElementById("vt-settings-overlay-root");
         return !!root && !root.classList.contains("vt-settings-hidden");
@@ -3127,9 +3195,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/keybinds.js
+  // tv/vacuumtube/preload/modules/keybinds.js
   var require_keybinds = __commonJS({
-    "vacuumtube/preload/modules/keybinds.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/keybinds.js"(exports, module) {
       var ui = require_ui();
       var rcMod = require_resolveCommandModifiers();
       var patchFunction = require_patchFunction();
@@ -3231,9 +3299,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/leanback-settings.js
+  // tv/vacuumtube/preload/modules/leanback-settings.js
   var require_leanback_settings = __commonJS({
-    "vacuumtube/preload/modules/leanback-settings.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/leanback-settings.js"(exports, module) {
       var { shell } = require_electron();
       var configManager = require_config();
       var jsonMod = require_jsonModifiers();
@@ -3345,9 +3413,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/low-memory-mode.js
+  // tv/vacuumtube/preload/modules/low-memory-mode.js
   var require_low_memory_mode = __commonJS({
-    "vacuumtube/preload/modules/low-memory-mode.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/low-memory-mode.js"(exports, module) {
       var configManager = require_config();
       var configOverrides = require_configOverrides();
       module.exports = () => {
@@ -3363,9 +3431,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/media-capabilities.js
+  // tv/vacuumtube/preload/modules/media-capabilities.js
   var require_media_capabilities = __commonJS({
-    "vacuumtube/preload/modules/media-capabilities.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/media-capabilities.js"(exports, module) {
       var checks = {
         width: (value) => Number(value) > 0 && Number(value) <= 7680,
         //8k width
@@ -3413,9 +3481,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/mouse.js
+  // tv/vacuumtube/preload/modules/mouse.js
   var require_mouse = __commonJS({
-    "vacuumtube/preload/modules/mouse.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/mouse.js"(exports, module) {
       var shortcuts = require_shortcuts();
       module.exports = () => {
         const BACK = 32769;
@@ -3488,9 +3556,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/music-mode/player-response.js
+  // tv/vacuumtube/preload/modules/music-mode/player-response.js
   var require_player_response = __commonJS({
-    "vacuumtube/preload/modules/music-mode/player-response.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/music-mode/player-response.js"(exports, module) {
       function isObject(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value);
       }
@@ -3585,9 +3653,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/music-mode/index.js
+  // tv/vacuumtube/preload/modules/music-mode/index.js
   var require_music_mode = __commonJS({
-    "vacuumtube/preload/modules/music-mode/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/music-mode/index.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var jsonModifiers = require_jsonModifiers();
@@ -3730,9 +3798,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/no-f11.js
+  // tv/vacuumtube/preload/modules/no-f11.js
   var require_no_f11 = __commonJS({
-    "vacuumtube/preload/modules/no-f11.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/no-f11.js"(exports, module) {
       module.exports = () => {
         document.addEventListener("keydown", (e) => {
           if (e.key === "F11") {
@@ -3743,9 +3811,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/pause-on-blur.js
+  // tv/vacuumtube/preload/modules/pause-on-blur.js
   var require_pause_on_blur = __commonJS({
-    "vacuumtube/preload/modules/pause-on-blur.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/pause-on-blur.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var rcMod = require_resolveCommandModifiers();
@@ -3775,9 +3843,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/remaining-time.js
+  // tv/vacuumtube/preload/modules/remaining-time.js
   var require_remaining_time = __commonJS({
-    "vacuumtube/preload/modules/remaining-time.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/remaining-time.js"(exports, module) {
       var configManager = require_config();
       var shortcuts = require_shortcuts();
       function isEnabled(config) {
@@ -3865,9 +3933,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/remove-super-resolution.js
+  // tv/vacuumtube/preload/modules/remove-super-resolution.js
   var require_remove_super_resolution = __commonJS({
-    "vacuumtube/preload/modules/remove-super-resolution.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/remove-super-resolution.js"(exports, module) {
       var jsonMod = require_jsonModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -3882,9 +3950,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/return-youtube-dislike.js
+  // tv/vacuumtube/preload/modules/return-youtube-dislike.js
   var require_return_youtube_dislike = __commonJS({
-    "vacuumtube/preload/modules/return-youtube-dislike.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/return-youtube-dislike.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var localeProvider = require_localeProvider();
       var configManager = require_config();
@@ -3942,9 +4010,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/render.js
+  // tv/vacuumtube/preload/modules/settings/render.js
   var require_render = __commonJS({
-    "vacuumtube/preload/modules/settings/render.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/render.js"(exports, module) {
       var configManager = require_config();
       var { el } = require_functions();
       function rowId(row) {
@@ -4101,9 +4169,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/overlay.js
+  // tv/vacuumtube/preload/modules/settings/overlay.js
   var require_overlay = __commonJS({
-    "vacuumtube/preload/modules/settings/overlay.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/overlay.js"(exports, module) {
       var { el } = require_functions();
       function create(categories, locale, actions) {
         const tabs = categories.map((category, index) => {
@@ -4178,9 +4246,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/scroll.js
+  // tv/vacuumtube/preload/modules/settings/scroll.js
   var require_scroll = __commonJS({
-    "vacuumtube/preload/modules/settings/scroll.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/scroll.js"(exports, module) {
       var MARGIN = 16;
       var viewport = null;
       var list = null;
@@ -4262,9 +4330,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/nav.js
+  // tv/vacuumtube/preload/modules/settings/nav.js
   var require_nav = __commonJS({
-    "vacuumtube/preload/modules/settings/nav.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/nav.js"(exports, module) {
       function gap(a1, a2, b1, b2) {
         return Math.max(0, b1 - a2, a1 - b2);
       }
@@ -4328,9 +4396,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/focus.js
+  // tv/vacuumtube/preload/modules/settings/focus.js
   var require_focus = __commonJS({
-    "vacuumtube/preload/modules/settings/focus.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/focus.js"(exports, module) {
       var overlay = require_overlay();
       var scroll = require_scroll();
       var { findNext } = require_nav();
@@ -4391,9 +4459,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/input.js
+  // tv/vacuumtube/preload/modules/settings/input.js
   var require_input = __commonJS({
-    "vacuumtube/preload/modules/settings/input.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/input.js"(exports, module) {
       var controller = require_controller();
       var directions = {
         "ArrowUp": "up",
@@ -4473,9 +4541,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/about.js
+  // tv/vacuumtube/preload/modules/settings/pages/about.js
   var require_about = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/about.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/about.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/settings/pages";
       var fs = require_fs();
       var path = require_path();
@@ -4600,9 +4668,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/sponsorblock.js
+  // tv/vacuumtube/preload/modules/settings/pages/sponsorblock.js
   var require_sponsorblock = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/sponsorblock.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/sponsorblock.js"(exports, module) {
       var CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler"];
       var SPONSORBLOCK_KEYS = CATEGORIES.map((name) => `sponsorblock_skip_${name}`);
       module.exports = {
@@ -4620,9 +4688,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/h264ify.js
+  // tv/vacuumtube/preload/modules/settings/pages/h264ify.js
   var require_h264ify2 = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/h264ify.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/h264ify.js"(exports, module) {
       var CODECS = { webm: "WebM", vp8: "VP8", vp9: "VP9", av1: "AV1" };
       var CODEC_KEYS = Object.keys(CODECS).map((id) => `h264ify_disable_${id}`);
       module.exports = {
@@ -4641,9 +4709,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/guide-tabs.js
+  // tv/vacuumtube/preload/modules/settings/pages/guide-tabs.js
   var require_guide_tabs2 = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/guide-tabs.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/guide-tabs.js"(exports, module) {
       var configManager = require_config();
       var GUIDE_TABS = ["search", "shorts", "subscriptions", "library", "gaming", "music", "news", "podcasts", "movies_and_tv", "live", "sports"];
       module.exports = {
@@ -4665,9 +4733,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/userstyles.js
+  // tv/vacuumtube/preload/modules/settings/pages/userstyles.js
   var require_userstyles = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/userstyles.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/userstyles.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       async function getStyles() {
@@ -4708,9 +4776,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/features.js
+  // tv/vacuumtube/preload/modules/settings/pages/features.js
   var require_features = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/features.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/features.js"(exports, module) {
       module.exports = {
         id: "features",
         title: (locale) => locale.features.title,
@@ -4741,9 +4809,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/mac-permissions.js
+  // tv/vacuumtube/preload/modules/settings/pages/mac-permissions.js
   var require_mac_permissions = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/mac-permissions.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/mac-permissions.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var status = null;
       var message = "";
@@ -4808,9 +4876,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/pages/index.js
+  // tv/vacuumtube/preload/modules/settings/pages/index.js
   var require_pages = __commonJS({
-    "vacuumtube/preload/modules/settings/pages/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/index.js"(exports, module) {
       var pages = [
         require_about(),
         require_sponsorblock(),
@@ -4824,9 +4892,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/schema.js
+  // tv/vacuumtube/preload/modules/settings/schema.js
   var require_schema = __commonJS({
-    "vacuumtube/preload/modules/settings/schema.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/schema.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var { SPONSORBLOCK_KEYS } = require_sponsorblock();
       var { CODEC_KEYS } = require_h264ify2();
@@ -4930,8 +4998,7 @@ ${headersText}\r
             {
               id: "input",
               rows: [
-                { type: "toggle", key: "controller_support" },
-                { type: "toggle", key: "touch_overlay" }
+                { type: "toggle", key: "controller_support" }
               ]
             },
             {
@@ -4965,9 +5032,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/settings/index.js
+  // tv/vacuumtube/preload/modules/settings/index.js
   var require_settings = __commonJS({
-    "vacuumtube/preload/modules/settings/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/index.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/settings";
       var fs = require_fs();
       var path = require_path();
@@ -5095,7 +5162,7 @@ ${headersText}\r
         await functions.waitForCondition(() => !!document.body);
         locale = localeProvider.getLocale().settings;
         categories = schema(locale).filter((category) => !category.hide);
-        css.inject("settings", fs.readFileSync(path.join(__dirname, "style.css"), "utf-8"));
+        await css.inject("settings", fs.readFileSync(path.join(__dirname, "style.css"), "utf-8"));
         document.body.appendChild(overlay.create(categories, locale, {
           //activating a tab moves focus into the settings, arrow keys across the tabs do not
           openCategory: async (index) => {
@@ -5126,9 +5193,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/speed-control/index.js
+  // tv/vacuumtube/preload/modules/speed-control/index.js
   var require_speed_control = __commonJS({
-    "vacuumtube/preload/modules/speed-control/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/speed-control/index.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/speed-control";
       var fs = require_fs();
       var path = require_path();
@@ -5219,9 +5286,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/sponsorblock.js
+  // tv/vacuumtube/preload/modules/sponsorblock.js
   var require_sponsorblock2 = __commonJS({
-    "vacuumtube/preload/modules/sponsorblock.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/sponsorblock.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var ui = require_ui();
       var css = require_css();
@@ -5380,9 +5447,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/support-webp.js
+  // tv/vacuumtube/preload/modules/support-webp.js
   var require_support_webp = __commonJS({
-    "vacuumtube/preload/modules/support-webp.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/support-webp.js"(exports, module) {
       var configOverrides = require_configOverrides();
       module.exports = () => {
         configOverrides.ytcfgOverrides.push({
@@ -5396,165 +5463,9 @@ ${headersText}\r
     }
   });
 
-  // vacuumtube/preload/modules/touch-support.js
-  var require_touch_support = __commonJS({
-    "vacuumtube/preload/modules/touch-support.js"(exports, module) {
-      var configOverrides = require_configOverrides();
-      var css = require_css();
-      var configManager = require_config();
-      var config = configManager.get();
-      module.exports = () => {
-        configOverrides.environmentOverrides.push({
-          flags: {
-            enable_touch_support: true
-            //native scrollbars
-          }
-        });
-        css.inject("touch-support", `
-        html:not(.vt-touch-input) yt-virtual-list,
-        html:not(.vt-touch-input) .ogHbMc {
-            overflow: hidden !important;
-        }
-    `);
-        window.addEventListener("pointerdown", (e) => {
-          document.documentElement.classList.toggle("vt-touch-input", e.pointerType === "touch");
-        }, true);
-        window.addEventListener("keydown", (e) => {
-          if (e.isTrusted) {
-            document.documentElement.classList.remove("vt-touch-input");
-          }
-        }, true);
-        window.addEventListener("keydown", (e) => {
-          if (e.code === "Space") {
-            e.preventDefault();
-          }
-        });
-        window.addEventListener("load", () => {
-          const touchKeyCodeMap = {
-            //maps to gamepad keycodes
-            "back": 32769,
-            //escape
-            "select": 32768,
-            //enter
-            "up": 32785,
-            "down": 32786,
-            "left": 32787,
-            "right": 32788
-          };
-          function simulateKeyDown(keyCode) {
-            let event = new Event("keydown");
-            event.keyCode = keyCode;
-            document.dispatchEvent(event);
-          }
-          function simulateKeyUp(keyCode) {
-            let event = new Event("keyup");
-            event.keyCode = keyCode;
-            document.dispatchEvent(event);
-          }
-          let zIndex = 999;
-          let controls = document.createElement("div");
-          let bottomLeft = document.createElement("div");
-          bottomLeft.style.position = "absolute";
-          bottomLeft.style.bottom = "5vh";
-          bottomLeft.style.left = "5vh";
-          bottomLeft.style.zIndex = zIndex.toString();
-          controls.appendChild(bottomLeft);
-          let bottomRight = document.createElement("div");
-          bottomRight.style.position = "absolute";
-          bottomRight.style.bottom = "5vh";
-          bottomRight.style.right = "5vh";
-          bottomRight.style.zIndex = zIndex.toString();
-          controls.appendChild(bottomRight);
-          function createCircularButton(text, keyCode, margin, ytIcon) {
-            let button = document.createElement("div");
-            button.style.display = "inline-flex";
-            button.style.justifyContent = "center";
-            button.style.alignItems = "center";
-            button.style.width = "10vw";
-            button.style.height = "10vw";
-            button.style.backgroundColor = "#272727";
-            button.style.opacity = "0.9";
-            button.style.borderRadius = "50%";
-            button.style.color = "white";
-            button.style.fontWeight = "bold";
-            button.style.userSelect = "none";
-            button.style.verticalAlign = "middle";
-            button.style.zIndex = (zIndex + 1).toString();
-            button.textContent = text;
-            button.addEventListener("touchstart", () => simulateKeyDown(keyCode));
-            button.addEventListener("touchend", () => simulateKeyUp(keyCode));
-            if (margin) {
-              button.style.marginLeft = "1vw";
-            }
-            if (ytIcon) {
-              button.style.fontFamily = "YouTube Icons Outlined";
-              button.style.fontSize = "5vw";
-            }
-            return button;
-          }
-          let left = createCircularButton("\uE5DE", touchKeyCodeMap.left, true, true);
-          bottomLeft.appendChild(left);
-          let right = createCircularButton("\uE5DF", touchKeyCodeMap.right, true, true);
-          bottomLeft.appendChild(right);
-          let up = createCircularButton("\uE5DE", touchKeyCodeMap.up, true, true);
-          up.style.transform = "rotate(90deg)";
-          bottomLeft.appendChild(up);
-          let down = createCircularButton("\uE5DE", touchKeyCodeMap.down, true, true);
-          down.style.transform = "rotate(-90deg)";
-          bottomLeft.appendChild(down);
-          let back = createCircularButton("\u25E6", touchKeyCodeMap.back, true);
-          back.style.fontSize = "7vw";
-          bottomRight.appendChild(back);
-          let select = createCircularButton("\xB7", touchKeyCodeMap.select, true);
-          select.style.fontSize = "12vw";
-          bottomRight.appendChild(select);
-          document.body.appendChild(controls);
-          let visible = true;
-          let lastTouch = 0;
-          let revealingTouch = false;
-          function hide() {
-            controls.style.display = "none";
-            visible = false;
-          }
-          function show() {
-            controls.style.display = "";
-            visible = true;
-          }
-          hide();
-          setInterval(() => {
-            if (!visible) return;
-            if (Date.now() - lastTouch >= 3e3 || !config.touch_overlay) {
-              hide();
-            }
-          }, 20);
-          window.addEventListener("pointerdown", (e) => {
-            if (e.pointerType !== "touch" || !config.touch_overlay) return;
-            lastTouch = Date.now();
-            if (!visible) {
-              revealingTouch = true;
-              show();
-            }
-          }, true);
-          for (let type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "mousedown", "mouseup", "click"]) {
-            window.addEventListener(type, (e) => {
-              if (revealingTouch || controls.contains(e.target)) e.stopPropagation();
-            }, true);
-          }
-          for (let type of ["touchend", "touchcancel"]) {
-            window.addEventListener(type, (e) => {
-              if (!revealingTouch || e.touches.length) return;
-              e.preventDefault();
-              revealingTouch = false;
-            });
-          }
-        });
-      };
-    }
-  });
-
-  // vacuumtube/preload/modules/ultrawide.js
+  // tv/vacuumtube/preload/modules/ultrawide.js
   var require_ultrawide = __commonJS({
-    "vacuumtube/preload/modules/ultrawide.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/ultrawide.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var css = require_css();
@@ -5599,9 +5510,9 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // vacuumtube/preload/modules/userstyles.js
+  // tv/vacuumtube/preload/modules/userstyles.js
   var require_userstyles2 = __commonJS({
-    "vacuumtube/preload/modules/userstyles.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/userstyles.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var functions = require_functions();
@@ -5695,9 +5606,9 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // vacuumtube/preload/modules/voice-privacy-notice.js
+  // tv/vacuumtube/preload/modules/voice-privacy-notice.js
   var require_voice_privacy_notice = __commonJS({
-    "vacuumtube/preload/modules/voice-privacy-notice.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/voice-privacy-notice.js"(exports, module) {
       var configOverrides = require_configOverrides();
       module.exports = () => {
         if (false) return;
@@ -5710,9 +5621,9 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // vacuumtube/preload/modules/volume-control/index.js
+  // tv/vacuumtube/preload/modules/volume-control/index.js
   var require_volume_control = __commonJS({
-    "vacuumtube/preload/modules/volume-control/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/volume-control/index.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/volume-control";
       var fs = require_fs();
       var path = require_path();
@@ -5835,6 +5746,7 @@ ytlr-welcome-immersive-value-prop
   var require_vt_modules = __commonJS({
     "vt:vt:modules"(exports, module) {
       module.exports = [
+        require_touch(),
         require_adblock(),
         require_block_continue_watching(),
         require_block_sign_in_popup(),
@@ -5866,7 +5778,6 @@ ytlr-welcome-immersive-value-prop
         require_speed_control(),
         require_sponsorblock2(),
         require_support_webp(),
-        require_touch_support(),
         require_ultrawide(),
         require_userstyles2(),
         require_voice_privacy_notice(),
@@ -5875,7 +5786,7 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // entry.js
+  // tv/entry.js
   require_trusted_types();
   require_gamepad();
   if (location.host === "www.youtube.com" && location.pathname === "/tv") {

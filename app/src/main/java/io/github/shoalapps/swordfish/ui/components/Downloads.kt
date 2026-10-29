@@ -6,6 +6,13 @@ import io.github.shoalapps.swordfish.LocalisedText as Text
 import io.github.shoalapps.swordfish.LocalisedIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import io.github.shoalapps.swordfish.data.DownloadErrors
 import androidx.compose.ui.unit.dp
 import io.github.shoalapps.swordfish.AppGraph
 import io.github.shoalapps.swordfish.data.VideoItem
@@ -35,9 +42,18 @@ fun Downloads(onVideo: (VideoItem) -> Unit) {
         if (downloads.isEmpty()) Text("Tap Download on a video to keep it offline.", Modifier.padding(vertical = 12.dp))
         downloads.forEach { entry ->
             Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(entry.video.title.ifBlank { entry.video.id }, style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AsyncImage(
+                        model = entry.video.thumbnail ?: "https://i.ytimg.com/vi/${entry.video.id}/hqdefault.jpg",
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.width(120.dp).aspectRatio(16f / 9).clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(enabled = entry.complete) { onVideo(entry.video) },
+                    )
+                    Text(entry.video.title.ifBlank { entry.video.id }, localise = false, style = MaterialTheme.typography.titleSmall, maxLines = 3, modifier = Modifier.weight(1f))
+                }
                 Text(when {
-                    entry.error != null -> entry.error
+                    entry.error != null -> DownloadErrors.message(entry.error)
                     entry.complete -> if (entry.kept) "Saved - ready offline" else "Automatic - ready offline"
                     progress.containsKey(entry.video.id) -> "Downloading ${progress[entry.video.id]}%"
                     else -> "Queued - waiting for an allowed connection"

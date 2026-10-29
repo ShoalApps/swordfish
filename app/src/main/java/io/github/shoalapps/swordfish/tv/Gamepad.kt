@@ -37,6 +37,12 @@ class Gamepad(private val onChange: (buttons: FloatArray, axes: FloatArray) -> U
         return true
     }
 
+    fun release() {
+        buttons.fill(0f)
+        axes.fill(0f)
+        onChange(buttons.copyOf(), axes.copyOf())
+    }
+
     private fun update(index: Int, value: Float): Boolean {
         if (buttons[index] == value) return false
         buttons[index] = value

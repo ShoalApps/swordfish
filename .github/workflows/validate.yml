@@ -16,6 +16,15 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Validate TV input and bundle
+        run: |
+          node --test tv/tests/*.cjs
+          npm ci --prefix tv --ignore-scripts
+          node tv/build.mjs
+          git diff --exit-code -- app/src/main/assets/tv/vacuumtube.js
       - name: Validate translation catalogues
         run: python3 tools/check-locales.py
       - name: Build app and UI tests; run unit tests

@@ -1,26 +1,18 @@
 [
   {
+    "title": "Downloads with a clearer view",
+    "body": "Downloads now show thumbnails and short, readable errors. Swordfish refreshes yt-dlp before first use and checks for updates daily on an allowed connection."
+  },
+  {
+    "title": "TV mode, under your fingertips",
+    "body": "Tap items and drag lists directly in TV mode. The oversized touch buttons are gone, and the settings overlay is styled and hidden correctly."
+  },
+  {
     "title": "Audio tracks and app language",
     "body": "Choose the available audio language or audio description from the player menu. Thumbnails request a sharper image with a fallback when it is unavailable. The app follows the system language by default; Settings can select a bundled translation. Coverage varies, and untranslated text stays in British English."
   },
   {
     "title": "Your video, ready offline",
     "body": "Automatically keep the whole current video and four recommendations on Wi-Fi. Change the count in Settings; use Download to keep a video until you remove it."
-  },
-  {
-    "title": "Kinder to your mobile data",
-    "body": "Mobile playback starts at 720p. Mobile downloads need your permission in Settings, and Android Data Saver pauses metered downloads and background fetching. TV mode waits for an unmetered connection while Data Saver is active."
-  },
-  {
-    "title": "A bell that listens",
-    "body": "Choose All, Personalised or None per channel, set the default for new subscriptions and choose a daily alert limit."
-  },
-  {
-    "title": "Fresh recommendations",
-    "body": "Reload Home to request a fresh feed and mix repeated recommendations."
-  },
-  {
-    "title": "A fresh catch, every update",
-    "body": "See version-specific changes after an update, and reopen these notes from Settings."
   }
 ]

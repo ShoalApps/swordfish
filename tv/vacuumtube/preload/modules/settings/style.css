@@ -46,6 +46,7 @@ styles the frame and the generic row types from render.js only
 }
 
 #vt-settings-overlay-root.vt-settings-hidden {
+    display: none !important;
     opacity: 0;
     pointer-events: none;
 }

@@ -180,6 +180,7 @@ class TvActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        pad.release()
         web.evaluateJavascript("window.__pufferfishEmit&&window.__pufferfishEmit('blur')", null)
         super.onPause()
     }

@@ -1,4 +1,4 @@
-# Swordfish
+<p align="center"><a href="https://shoalapps.github.io/"><img src="https://raw.githubusercontent.com/ShoalApps/shoalapps.github.io/main/assets/readme/swordfish.svg" alt="Swordfish - a Shoal app, with the rest of the Shoal family" width="100%"></a></p>
 
 A Material 3 Expressive client for watching YouTube videos on Android, part of the **Shoal** project:
 open-source apps that take on your wallpaper colours with Material You.

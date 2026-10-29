@@ -17,7 +17,7 @@ function readConfig() {
     try { stored = JSON.parse(bridge.getConfig() || '{}') } catch {}
     let app = {}
     try { app = JSON.parse(bridge.getAppDefaults() || '{}') } catch {}
-    return { ...defaults, ...app, ...stored }
+    return { ...defaults, ...app, ...stored, touch_overlay: false }
 }
 
 function open(url) { bridge.openUrl(url) }
@@ -28,7 +28,7 @@ const about = () => ({
     latestVersion: '',
     platform: 'android',
     arch: 'arm64',
-    installationType: 'pufferfish',
+    installationType: 'swordfish',
     canAutoUpdate: false,
     progress: null,
 })
