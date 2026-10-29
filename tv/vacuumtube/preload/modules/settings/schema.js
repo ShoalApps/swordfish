@@ -108,7 +108,6 @@ module.exports = (locale) => [
                 id: 'input',
                 rows: [
                     { type: 'toggle', key: 'controller_support' },
-                    { type: 'toggle', key: 'touch_overlay' }
                 ]
             },
             {

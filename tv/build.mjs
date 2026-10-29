@@ -31,7 +31,7 @@ for (const file of [...walk(preload), ...walk(path.join(vt, 'locale')), path.joi
 const modulesDir = path.join(preload, 'modules')
 const modules = fs.readdirSync(modulesDir, { withFileTypes: true })
     .filter(e => e.isDirectory() || e.name.endsWith('.js'))
-    .map(e => path.join(modulesDir, e.isDirectory() ? e.name + '/index.js' : e.name))
+    .map(e => e.name === 'touch-support.js' ? path.join(here, 'touch.js') : path.join(modulesDir, e.isDirectory() ? e.name + '/index.js' : e.name))
     .sort()
 
 // Config defaults from VacuumTube's main process, with Android-specific changes.
@@ -42,6 +42,7 @@ Object.assign(defaults, {
     device_discoverability: false, // casting server needs raw sockets
     auto_update: false, // the app updates itself
     hardware_decoding: true,
+    touch_overlay: false,
 })
 
 const version = JSON.parse(fs.readFileSync(path.join(here, 'vacuumtube-version.json'), 'utf8')).version
@@ -49,6 +50,7 @@ const version = JSON.parse(fs.readFileSync(path.join(here, 'vacuumtube-version.j
 const virtual = {
     name: 'virtual',
     setup(build) {
+        build.onResolve({ filter: /(?:^|\/)util\/css$/ }, a => a.importer.includes('vacuumtube') || a.importer.endsWith('/touch.js') ? {path:path.join(here,'shims/css.js')} : undefined)
         build.onResolve({ filter: /^vt:/ }, a => ({ path: a.path, namespace: 'vt' }))
         // VacuumTube's DIAL code reads its own package.json for the version.
         build.onResolve({ filter: /package\.json$/ }, a => a.importer.includes('vacuumtube') ? { path: 'vt:package', namespace: 'vt' } : undefined)

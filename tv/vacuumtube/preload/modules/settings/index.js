@@ -166,7 +166,7 @@ module.exports = async () => {
     locale = localeProvider.getLocale().settings;
     categories = schema(locale).filter((category) => !category.hide)
 
-    css.inject('settings', fs.readFileSync(path.join(__dirname, 'style.css'), 'utf-8'))
+    await css.inject('settings', fs.readFileSync(path.join(__dirname, 'style.css'), 'utf-8'))
 
     document.body.appendChild(overlay.create(categories, locale, {
         //activating a tab moves focus into the settings, arrow keys across the tabs do not

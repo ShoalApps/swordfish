@@ -20,6 +20,8 @@ import io.github.shoalapps.swordfish.player.NetworkInfo
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import java.io.File
@@ -209,7 +211,7 @@ class OfflineVideos(private val context: Context) {
 }
 
 class VideoDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result = engineMutex.withLock { withContext(Dispatchers.IO) {
         val video = inputData.getString("video")?.let { json.decodeFromString<VideoItem>(it) } ?: return@withContext Result.failure()
         if (!OfflineVideos.validId(video.id) || !AppGraph.offline.wanted(video)) return@withContext Result.success()
         val automatic = inputData.getBoolean("automatic", true)
@@ -222,12 +224,17 @@ class VideoDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                 YoutubeDL.getInstance().init(applicationContext)
                 FFmpeg.getInstance().init(applicationContext)
             }
+            // The APK's seed extractor is only a bootstrap. Update before the first download,
+            // then daily, while holding the same lock as downloads so files cannot change mid-run.
+            refreshExtractor()
+            check(NetworkPolicy.downloadsAllowed()) { "Downloads are paused by your network settings" }
             check(dir.usableSpace > 256L * 1024 * 1024) { "Not enough free space to download this video" }
             val quality = NetworkPolicy.quality()
             val request = YoutubeDLRequest("https://www.youtube.com/watch?v=${video.id}").apply {
                 addOption("--no-playlist")
                 addOption("--match-filter", "!is_live & !is_upcoming")
                 addOption("--no-mtime")
+                addOption("--no-continue")
                 addOption("--socket-timeout", 20)
                 addOption("--retries", 3)
                 addOption("--max-filesize", "2G")
@@ -235,13 +242,25 @@ class VideoDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                 addOption("--merge-output-format", "mp4")
                 addOption("-o", File(dir, "video.%(ext)s").absolutePath)
             }
-            runInterruptible {
+            suspend fun execute() = runInterruptible {
                 YoutubeDL.getInstance().execute(request, id.toString()) { value, _, _ ->
-                    if (!NetworkPolicy.downloadsAllowed()) {
-                        YoutubeDL.getInstance().destroyProcessById(id.toString())
-                    }
+                    if (!NetworkPolicy.downloadsAllowed()) YoutubeDL.getInstance().destroyProcessById(id.toString())
                     AppGraph.offline.progress.value = AppGraph.offline.progress.value + (video.id to value.toInt().coerceIn(0, 100))
                 }
+            }
+            try {
+                execute()
+            } catch (e: CancellationException) { throw e
+            } catch (e: Exception) {
+                if (!DownloadErrors.rejectedByYouTube(e.message.orEmpty())) throw e
+                // Refresh extraction once, using YouTube's Android client if the default CDN
+                // formats were rejected. Never loop through failing clients indefinitely.
+                refreshExtractor(force = true)
+                ensureActive()
+                check(NetworkPolicy.downloadsAllowed()) { "Downloads are paused by your network settings" }
+                dir.listFiles()?.forEach { it.delete() }
+                request.addOption("--extractor-args", "youtube:player_client=android")
+                execute()
             }
             ensureActive()
             val completed = File(dir, "video.mp4")
@@ -252,7 +271,7 @@ class VideoDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             throw e
         } catch (e: Exception) {
             if (runAttemptCount < 2) Result.retry() else {
-                AppGraph.offline.failed(video.id, NetworkInfo.friendlyError(e))
+                AppGraph.offline.failed(video.id, DownloadErrors.message(e.message.orEmpty()))
                 Result.failure()
             }
         } finally {
@@ -261,6 +280,31 @@ class VideoDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             dir.deleteRecursively()
         }
     }
+
+    }
+
+    private suspend fun refreshExtractor(force: Boolean = false) {
+        val prefs = applicationContext.getSharedPreferences("download-engine", Context.MODE_PRIVATE)
+        val last = prefs.getLong("last-successful-update", 0)
+        val now = System.currentTimeMillis()
+        if (!force && now - last in 0 until 24 * 60 * 60_000L) return
+        check(NetworkPolicy.downloadsAllowed()) { "Downloads are paused by your network settings" }
+        try {
+            withTimeout(60_000) {
+                runInterruptible { YoutubeDL.getInstance().updateYoutubeDL(applicationContext, YoutubeDL.UpdateChannel.STABLE) }
+            }
+            prefs.edit().putLong("last-successful-update", System.currentTimeMillis()).apply()
+        } catch (e: TimeoutCancellationException) {
+            if (last == 0L) throw java.io.IOException("DOWNLOADER_UPDATE_FAILED", e)
+        } catch (e: CancellationException) { throw e
+        } catch (e: Exception) {
+            // A previously refreshed extractor can still work while GitHub is unavailable.
+            // Never start with the stale seed extractor after its first update failed.
+            if (last == 0L) throw java.io.IOException("DOWNLOADER_UPDATE_FAILED", e)
+        }
+    }
+
+    companion object { private val engineMutex = Mutex() }
 
     private fun foreground(video: VideoItem): ForegroundInfo {
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
