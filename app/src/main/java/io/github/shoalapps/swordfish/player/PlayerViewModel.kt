@@ -551,7 +551,7 @@ class PlayerViewModel : ViewModel() {
                     author = store.account.value?.name ?: "You",
                     avatar = store.account.value?.avatar,
                     html = text.replace("<", "&lt;"),
-                    likes = 0, date = "just now", replies = 0, pinned = false, hearted = false,
+                    likes = 0, date = "saved · waiting to sync", replies = 0, pinned = false, hearted = false,
                 )
                 if (to == null) comments = listOf(mine) + comments
                 else replies[to.id] = (replies[to.id] ?: emptyList()) + mine

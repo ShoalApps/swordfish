@@ -82,7 +82,7 @@ class OfflineVideos(private val context: Context) {
 
     @Synchronized
     fun watching(video: VideoItem?) {
-        if (current?.id != video?.id) {
+        if (current?.id != video?.id && !NetworkInfo.offline()) {
             // Leaving a video removes its temporary copy, even if it was also in the old feed.
             val previousId = current?.id
             feed = feed.filterNot { it.id == previousId }
@@ -128,6 +128,8 @@ class OfflineVideos(private val context: Context) {
 
     @Synchronized
     fun reconcile() {
+        // Keep automatic copies usable throughout an offline session, including when switching videos.
+        if (NetworkInfo.offline()) return
         val settings = AppGraph.store.settings.value
         if (wifiOnly != settings.downloadWifiOnly) {
             _videos.value.filterNot { it.complete }.forEach { work.cancelUniqueWork(workName(it.video.id)) }
