@@ -46,7 +46,7 @@ class TubeApp : Application(), SingletonImageLoader.Factory {
         ImageLoader.Builder(context)
             .components {
                 add(coil3.intercept.Interceptor { chain ->
-                    val request = if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData())
+                    val request = if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData() || io.github.shoalapps.swordfish.player.NetworkInfo.offline())
                         chain.request.newBuilder().networkCachePolicy(coil3.request.CachePolicy.DISABLED).build()
                     else chain.request
                     val original = request.data as? String
