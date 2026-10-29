@@ -131,6 +131,8 @@ data class Playable(
     val qualities: List<Int>,
 )
 
+data class AudioChoice(val id: String, val label: String, val language: String?, val original: Boolean = false)
+
 object StreamPicker {
     private val resolutionHeight = Regex("""^(\d{3,4})p""")
 
@@ -145,7 +147,25 @@ object StreamPicker {
         resolutionHeight.find(resolution.orEmpty())?.groupValues?.get(1)?.toInt()
             ?: if (width > 0 && height > 0) minOf(width, height) else height.coerceAtLeast(0)
 
-    fun pick(info: StreamInfo, maxHeight: Int): Playable {
+    fun audioId(stream: AudioStream): String = stream.audioTrackId?.takeIf { it.isNotBlank() }
+        ?: "${stream.audioLocale?.toLanguageTag().orEmpty()}:${stream.audioTrackType ?: AudioTrackType.ORIGINAL}"
+
+    fun audioTracks(info: StreamInfo): List<AudioChoice> = info.audioStreams
+        .filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+        .distinctBy(::audioId)
+        .map { stream ->
+            val original = stream.audioTrackType == null || stream.audioTrackType == AudioTrackType.ORIGINAL
+            val name = stream.audioTrackName?.takeIf { it.isNotBlank() }
+                ?: stream.audioLocale?.getDisplayName(java.util.Locale.getDefault())?.takeIf { it.isNotBlank() }
+                ?: if (original) "Original" else "Audio"
+            AudioChoice(audioId(stream), name + when (stream.audioTrackType) {
+                AudioTrackType.ORIGINAL -> " (original)"
+                AudioTrackType.DESCRIPTIVE -> " (audio description)"
+                else -> ""
+            }, stream.audioLocale?.toLanguageTag(), original)
+        }
+
+    fun pick(info: StreamInfo, maxHeight: Int, audioTrackId: String? = null): Playable {
         val isLive = info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM
         if (isLive && !info.hlsUrl.isNullOrBlank()) {
             return Playable(null, null, info.hlsUrl, emptyList())
@@ -168,7 +188,8 @@ object StreamPicker {
         val audio = if (muxedFallback) null else info.audioStreams
             .filter { it.isUrl && progressive(it.deliveryMethod) }
             .sortedWith(
-                compareByDescending<AudioStream> {
+                compareByDescending<AudioStream> { audioTrackId != null && audioId(it) == audioTrackId }
+                    .thenByDescending {
                     it.audioTrackType == null || it.audioTrackType == AudioTrackType.ORIGINAL
                 }
                     .thenByDescending { it.format == MediaFormat.M4A }

@@ -26,7 +26,7 @@ class StreamPickerTest {
             .build()
     }
 
-    private fun audio(itag: Int, type: AudioTrackType? = null): AudioStream {
+    private fun audio(itag: Int, type: AudioTrackType? = null, track: String? = null, language: String? = null): AudioStream {
         val item = ItagItem.getItag(itag)
         return AudioStream.Builder()
             .setId("$itag-$type")
@@ -35,6 +35,9 @@ class StreamPickerTest {
             .setDeliveryMethod(DeliveryMethod.PROGRESSIVE_HTTP)
             .setAverageBitrate(item.averageBitrate)
             .setAudioTrackType(type)
+            .setAudioTrackId(track)
+            .setAudioTrackName(language)
+            .setAudioLocale(language?.let(java.util.Locale::forLanguageTag))
             .setItagItem(item)
             .build()
     }
@@ -75,6 +78,34 @@ class StreamPickerTest {
         val a = StreamPicker.pick(withDub, 1080).audio!!
         assertEquals(AudioTrackType.ORIGINAL, a.audioTrackType)
         assertEquals(MediaFormat.M4A, a.format)
+    }
+
+    @Test fun selectsAnExplicitDubAndKeepsItsBestAvailableEncoding() {
+        val dubbed = info().apply {
+            videoOnlyStreams = listOf(video(137))
+            audioStreams = listOf(audio(140, AudioTrackType.ORIGINAL, "original", "en"),
+                audio(140, AudioTrackType.DUBBED, "dub-fr", "fr"), audio(251, AudioTrackType.DUBBED, "dub-fr", "fr"))
+        }
+        val selected = StreamPicker.pick(dubbed, 1080, "dub-fr")
+        assertEquals("dub-fr", selected.audio?.audioTrackId)
+        assertEquals(2, StreamPicker.audioTracks(dubbed).size)
+    }
+
+    @Test fun missingAudioSelectionFallsBackToOriginal() {
+        val tracks = info().apply {
+            videoOnlyStreams = listOf(video(137))
+            audioStreams = listOf(audio(140, AudioTrackType.DUBBED, "dub-fr", "fr"), audio(140, AudioTrackType.ORIGINAL, "original", "en"))
+        }
+        assertEquals("original", StreamPicker.pick(tracks, 1080, "not-present").audio?.audioTrackId)
+    }
+
+    @Test fun audioDescriptionRemainsADistinctChoice() {
+        val tracks = info().apply {
+            audioStreams = listOf(audio(140, AudioTrackType.ORIGINAL, "original", "en"), audio(140, AudioTrackType.DESCRIPTIVE, "description", "en"))
+        }
+        val choices = StreamPicker.audioTracks(tracks)
+        assertEquals(2, choices.size)
+        org.junit.Assert.assertTrue(choices.last().label.contains("audio description"))
     }
 
     @Test fun usesMuxedStreamsWithoutSeparateAudioWhenThatsAllThereIs() {

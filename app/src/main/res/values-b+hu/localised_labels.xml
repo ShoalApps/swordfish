@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">Keresés</string>
+  <string name="shortcut_subs">Feliratkozások</string>
+  <string name="shortcut_shorts">Rövidek</string>
+</resources>

@@ -26,7 +26,7 @@ import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
+import io.github.shoalapps.swordfish.LocalisedIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
@@ -34,7 +34,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import io.github.shoalapps.swordfish.LocalisedText as Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -203,7 +203,7 @@ fun ChannelPickerScreen(onDone: () -> Unit, onBack: () -> Unit, vm: ChannelPicke
                     items(vm.channels, key = { it.pageId ?: "main:${it.name}" }) { c ->
                         val isCurrent = c.pageId == current
                         ListItem(
-                            headlineContent = { Text(c.name, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal) },
+                            headlineContent = { Text(c.name, localise = false, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal) },
                             supportingContent = {
                                 Text(listOfNotNull(c.handle, if (c.pageId == null) "Main channel" else null).joinToString(" · "))
                             },

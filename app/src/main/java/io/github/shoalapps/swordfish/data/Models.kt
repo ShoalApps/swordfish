@@ -46,7 +46,7 @@ private val idRegex = Regex("""(?:v=|youtu\.be/|shorts/|live/|embed/)([\w-]{11})
 fun videoIdOf(url: String): String = idRegex.find(url)?.groupValues?.get(1) ?: url
 
 fun List<Image>.bestUrl(): String? =
-    maxByOrNull { if (it.height > 0) it.height else 0 }?.url ?: firstOrNull()?.url
+    maxByOrNull { maxOf(it.height, 0).toLong() * maxOf(it.width, 1) }?.url ?: firstOrNull()?.url
 
 fun List<Image>.smallUrl(): String? =
     filter { it.height in 1..240 }.maxByOrNull { it.height }?.url ?: bestUrl()

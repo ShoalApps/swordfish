@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">검색</string>
+  <string name="shortcut_subs">구독목록</string>
+  <string name="shortcut_shorts">쇼츠</string>
+</resources>

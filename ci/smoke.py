@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Walks through Tintloom Video on an Android emulator, taking screenshots and
+Walks through Swordfish on an Android emulator, taking screenshots and
 collecting crashes, so the app can be checked without a phone.
-Usage: python3 ci/smoke.py Tintloom Video.apk
+Usage: python3 ci/smoke.py Swordfish.apk
 """
 import os
 import re
@@ -11,7 +11,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 
-PKG = "com.aaronateataco.materialtube"
+PKG = "io.github.shoalapps.swordfish"
 OUT = "shots"
 os.makedirs(OUT, exist_ok=True)
 log_lines = []
@@ -144,8 +144,9 @@ def main():
     adb("shell cmd uimode night no")
     adb(f"shell am start -n {PKG}/.MainActivity")
     time.sleep(20)
+    tap("Let's dive in", exact=True)
     shot("home_light")
-    check_text("home", "Tintloom", "Home", "Shorts", "Subscriptions", "You")
+    check_text("home", "Swordfish", "Home", "Shorts", "Subscriptions", "You")
 
     # 2. Scroll down and back up: thumbnails should still be there
     swipe_up(5)
@@ -222,7 +223,7 @@ def main():
     shot("you")
 
     # 7. About + unlock developer settings
-    if tap("About Tintloom Video", wait=5):
+    if tap("About Swordfish", wait=5):
         shot("about")
         time.sleep(2)
         shot("about_morph_2s_later")

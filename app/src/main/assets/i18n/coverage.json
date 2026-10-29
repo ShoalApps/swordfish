@@ -1,0 +1,557 @@
+{
+  "sv": {
+    "translated": 572,
+    "total": 579,
+    "automatic": true
+  },
+  "ka": {
+    "translated": 54,
+    "total": 579,
+    "automatic": false
+  },
+  "lt": {
+    "translated": 55,
+    "total": 579,
+    "automatic": true
+  },
+  "ca": {
+    "translated": 551,
+    "total": 579,
+    "automatic": true
+  },
+  "zh-TW": {
+    "translated": 550,
+    "total": 579,
+    "automatic": true
+  },
+  "pt": {
+    "translated": 565,
+    "total": 579,
+    "automatic": true
+  },
+  "jv": {
+    "translated": 10,
+    "total": 579,
+    "automatic": false
+  },
+  "pa-PK": {
+    "translated": 18,
+    "total": 579,
+    "automatic": false
+  },
+  "as": {
+    "translated": 11,
+    "total": 579,
+    "automatic": false
+  },
+  "fi": {
+    "translated": 563,
+    "total": 579,
+    "automatic": true
+  },
+  "so": {
+    "translated": 43,
+    "total": 579,
+    "automatic": false
+  },
+  "ga": {
+    "translated": 557,
+    "total": 579,
+    "automatic": true
+  },
+  "tzm": {
+    "translated": 29,
+    "total": 579,
+    "automatic": false
+  },
+  "tt": {
+    "translated": 13,
+    "total": 579,
+    "automatic": false
+  },
+  "es": {
+    "translated": 559,
+    "total": 579,
+    "automatic": true
+  },
+  "sc": {
+    "translated": 55,
+    "total": 579,
+    "automatic": false
+  },
+  "ia": {
+    "translated": 28,
+    "total": 579,
+    "automatic": false
+  },
+  "sl": {
+    "translated": 553,
+    "total": 579,
+    "automatic": true
+  },
+  "ckb": {
+    "translated": 45,
+    "total": 579,
+    "automatic": false
+  },
+  "sw": {
+    "translated": 518,
+    "total": 579,
+    "automatic": true
+  },
+  "cnr": {
+    "translated": 2,
+    "total": 579,
+    "automatic": false
+  },
+  "ky": {
+    "translated": 527,
+    "total": 579,
+    "automatic": true
+  },
+  "de": {
+    "translated": 571,
+    "total": 579,
+    "automatic": true
+  },
+  "bn": {
+    "translated": 517,
+    "total": 579,
+    "automatic": true
+  },
+  "da": {
+    "translated": 557,
+    "total": 579,
+    "automatic": true
+  },
+  "hy": {
+    "translated": 47,
+    "total": 579,
+    "automatic": false
+  },
+  "ja": {
+    "translated": 562,
+    "total": 579,
+    "automatic": true
+  },
+  "pt-BR": {
+    "translated": 534,
+    "total": 579,
+    "automatic": true
+  },
+  "uz-Latn": {
+    "translated": 37,
+    "total": 579,
+    "automatic": false
+  },
+  "hu": {
+    "translated": 533,
+    "total": 579,
+    "automatic": true
+  },
+  "nb-NO": {
+    "translated": 53,
+    "total": 579,
+    "automatic": false
+  },
+  "ast": {
+    "translated": 37,
+    "total": 579,
+    "automatic": false
+  },
+  "af": {
+    "translated": 15,
+    "total": 579,
+    "automatic": false
+  },
+  "uk": {
+    "translated": 565,
+    "total": 579,
+    "automatic": true
+  },
+  "kab": {
+    "translated": 48,
+    "total": 579,
+    "automatic": false
+  },
+  "mr": {
+    "translated": 47,
+    "total": 579,
+    "automatic": false
+  },
+  "kmr": {
+    "translated": 40,
+    "total": 579,
+    "automatic": false
+  },
+  "sk": {
+    "translated": 556,
+    "total": 579,
+    "automatic": true
+  },
+  "und": {
+    "translated": 28,
+    "total": 579,
+    "automatic": false
+  },
+  "ur": {
+    "translated": 477,
+    "total": 579,
+    "automatic": true
+  },
+  "nl-BE": {
+    "translated": 41,
+    "total": 579,
+    "automatic": false
+  },
+  "ht": {
+    "translated": 2,
+    "total": 579,
+    "automatic": false
+  },
+  "pa": {
+    "translated": 55,
+    "total": 579,
+    "automatic": false
+  },
+  "oc": {
+    "translated": 10,
+    "total": 579,
+    "automatic": false
+  },
+  "th": {
+    "translated": 543,
+    "total": 579,
+    "automatic": true
+  },
+  "la": {
+    "translated": 28,
+    "total": 579,
+    "automatic": false
+  },
+  "kn": {
+    "translated": 8,
+    "total": 579,
+    "automatic": false
+  },
+  "hi": {
+    "translated": 554,
+    "total": 579,
+    "automatic": true
+  },
+  "ber": {
+    "translated": 21,
+    "total": 579,
+    "automatic": false
+  },
+  "fa": {
+    "translated": 552,
+    "total": 579,
+    "automatic": true
+  },
+  "nb": {
+    "translated": 556,
+    "total": 579,
+    "automatic": true
+  },
+  "ryu": {
+    "translated": 54,
+    "total": 579,
+    "automatic": false
+  },
+  "eo": {
+    "translated": 516,
+    "total": 579,
+    "automatic": true
+  },
+  "ro": {
+    "translated": 564,
+    "total": 579,
+    "automatic": true
+  },
+  "eu": {
+    "translated": 573,
+    "total": 579,
+    "automatic": true
+  },
+  "zh-CN": {
+    "translated": 546,
+    "total": 579,
+    "automatic": true
+  },
+  "gl": {
+    "translated": 544,
+    "total": 579,
+    "automatic": true
+  },
+  "ru": {
+    "translated": 560,
+    "total": 579,
+    "automatic": true
+  },
+  "pt-PT": {
+    "translated": 55,
+    "total": 579,
+    "automatic": false
+  },
+  "tr": {
+    "translated": 563,
+    "total": 579,
+    "automatic": true
+  },
+  "ml": {
+    "translated": 44,
+    "total": 579,
+    "automatic": false
+  },
+  "el": {
+    "translated": 564,
+    "total": 579,
+    "automatic": true
+  },
+  "et": {
+    "translated": 562,
+    "total": 579,
+    "automatic": true
+  },
+  "ace": {
+    "translated": 4,
+    "total": 579,
+    "automatic": false
+  },
+  "si": {
+    "translated": 7,
+    "total": 579,
+    "automatic": false
+  },
+  "be": {
+    "translated": 56,
+    "total": 579,
+    "automatic": false
+  },
+  "ar": {
+    "translated": 520,
+    "total": 579,
+    "automatic": true
+  },
+  "bn-IN": {
+    "translated": 34,
+    "total": 579,
+    "automatic": false
+  },
+  "fil": {
+    "translated": 25,
+    "total": 579,
+    "automatic": false
+  },
+  "ko": {
+    "translated": 569,
+    "total": 579,
+    "automatic": true
+  },
+  "ar-LY": {
+    "translated": 54,
+    "total": 579,
+    "automatic": false
+  },
+  "mn": {
+    "translated": 5,
+    "total": 579,
+    "automatic": false
+  },
+  "pl": {
+    "translated": 56,
+    "total": 579,
+    "automatic": true
+  },
+  "ne": {
+    "translated": 37,
+    "total": 579,
+    "automatic": false
+  },
+  "dum": {
+    "translated": 8,
+    "total": 579,
+    "automatic": false
+  },
+  "mk": {
+    "translated": 52,
+    "total": 579,
+    "automatic": false
+  },
+  "or": {
+    "translated": 54,
+    "total": 579,
+    "automatic": false
+  },
+  "it": {
+    "translated": 564,
+    "total": 579,
+    "automatic": true
+  },
+  "tl": {
+    "translated": 512,
+    "total": 579,
+    "automatic": true
+  },
+  "ms": {
+    "translated": 550,
+    "total": 579,
+    "automatic": true
+  },
+  "lv": {
+    "translated": 559,
+    "total": 579,
+    "automatic": true
+  },
+  "ku": {
+    "translated": 39,
+    "total": 579,
+    "automatic": false
+  },
+  "nn": {
+    "translated": 15,
+    "total": 579,
+    "automatic": false
+  },
+  "sq": {
+    "translated": 548,
+    "total": 579,
+    "automatic": true
+  },
+  "az": {
+    "translated": 553,
+    "total": 579,
+    "automatic": true
+  },
+  "zh": {
+    "translated": 546,
+    "total": 579,
+    "automatic": true
+  },
+  "ta": {
+    "translated": 54,
+    "total": 579,
+    "automatic": false
+  },
+  "bar": {
+    "translated": 5,
+    "total": 579,
+    "automatic": false
+  },
+  "id": {
+    "translated": 571,
+    "total": 579,
+    "automatic": true
+  },
+  "sr": {
+    "translated": 55,
+    "total": 579,
+    "automatic": false
+  },
+  "vi": {
+    "translated": 529,
+    "total": 579,
+    "automatic": true
+  },
+  "te": {
+    "translated": 32,
+    "total": 579,
+    "automatic": false
+  },
+  "my": {
+    "translated": 5,
+    "total": 579,
+    "automatic": false
+  },
+  "br": {
+    "translated": 23,
+    "total": 579,
+    "automatic": false
+  },
+  "bg": {
+    "translated": 533,
+    "total": 579,
+    "automatic": true
+  },
+  "fr": {
+    "translated": 570,
+    "total": 579,
+    "automatic": true
+  },
+  "bn-BD": {
+    "translated": 43,
+    "total": 579,
+    "automatic": false
+  },
+  "gu": {
+    "translated": 14,
+    "total": 579,
+    "automatic": false
+  },
+  "he": {
+    "translated": 528,
+    "total": 579,
+    "automatic": true
+  },
+  "nl": {
+    "translated": 571,
+    "total": 579,
+    "automatic": true
+  },
+  "is": {
+    "translated": 55,
+    "total": 579,
+    "automatic": false
+  },
+  "nap": {
+    "translated": 7,
+    "total": 579,
+    "automatic": false
+  },
+  "cs": {
+    "translated": 557,
+    "total": 579,
+    "automatic": true
+  },
+  "hr": {
+    "translated": 56,
+    "total": 579,
+    "automatic": false
+  },
+  "lmo": {
+    "translated": 8,
+    "total": 579,
+    "automatic": false
+  },
+  "nqo": {
+    "translated": 47,
+    "total": 579,
+    "automatic": false
+  },
+  "bs": {
+    "translated": 55,
+    "total": 579,
+    "automatic": false
+  },
+  "tok": {
+    "translated": 11,
+    "total": 579,
+    "automatic": false
+  },
+  "zh-HK": {
+    "translated": 54,
+    "total": 579,
+    "automatic": false
+  },
+  "ti": {
+    "translated": 25,
+    "total": 579,
+    "automatic": false
+  },
+  "sat": {
+    "translated": 53,
+    "total": 579,
+    "automatic": false
+  }
+}

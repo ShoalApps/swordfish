@@ -56,7 +56,7 @@ class SwordfishWidget : GlanceAppWidget() {
                         Row(GlanceModifier.fillMaxWidth().padding(top = 10.dp).clickable(open(context, last.url, main)), verticalAlignment = Alignment.CenterVertically) {
                             if (thumb != null) Image(ImageProvider(thumb), null, GlanceModifier.width(96.dp).height(54.dp).cornerRadius(12.dp), contentScale = ContentScale.Crop)
                             Column(GlanceModifier.defaultWeight().padding(start = 10.dp)) {
-                                Text("Carry on watching", style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium))
+                                Text(io.github.shoalapps.swordfish.AppLanguage.translate("Carry on watching"), style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium))
                                 Text(last.title, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 2)
                                 Text(last.channelName, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1)
                             }
@@ -91,7 +91,7 @@ internal fun WidgetButton(icon: Int, label: String, action: Action, modifier: Gl
         ) {
             Image(ImageProvider(icon), label, GlanceModifier.size(24.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.onSecondaryContainer))
         }
-        Text(label, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp), maxLines = 1, modifier = GlanceModifier.padding(top = 4.dp))
+        Text(io.github.shoalapps.swordfish.AppLanguage.translate(label), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp), maxLines = 1, modifier = GlanceModifier.padding(top = 4.dp))
     }
 }
 

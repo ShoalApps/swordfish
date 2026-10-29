@@ -81,14 +81,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
+import io.github.shoalapps.swordfish.LocalisedIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import io.github.shoalapps.swordfish.LocalisedText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -1072,6 +1072,10 @@ private fun PlayerOptionsSheet(vm: PlayerViewModel, onDismiss: () -> Unit) {
                     "main" -> {
                         OptionRow(Icons.Rounded.Tune, "Quality", "${vm.quality}p") { page = "quality" }
                         OptionRow(Icons.Rounded.Speed, "Playback speed", if (vm.speed == 1f) "Normal" else "${vm.speed}x") { page = "speed" }
+                        OptionRow(Icons.Rounded.Tune, "Audio track",
+                            vm.audioTracks.firstOrNull { it.id == vm.audioTrackId }?.label ?: "Unavailable") {
+                            if (vm.audioTracks.isNotEmpty()) page = "audio"
+                        }
                         OptionRow(
                             Icons.Rounded.ClosedCaption,
                             "Captions",
@@ -1091,6 +1095,12 @@ private fun PlayerOptionsSheet(vm: PlayerViewModel, onDismiss: () -> Unit) {
                             PickRow("${q}p" + if (q >= 2160) " 4K" else if (q >= 1440) " HD" else if (q >= 720) " HD" else "", q == vm.quality) {
                                 vm.changeQuality(q); onDismiss()
                             }
+                        }
+                    }
+                    "audio" -> {
+                        SheetTitle("Audio track") { page = "main" }
+                        vm.audioTracks.forEach { track ->
+                            PickRow(track.label, track.id == vm.audioTrackId) { vm.changeAudioTrack(track.id); onDismiss() }
                         }
                     }
                     "speed" -> {
@@ -1288,9 +1298,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                         }
                     }
                     if (channelUrl != null) {
-                        SubscribeButton(subs.any { it.url == channelUrl }) {
-                            AppGraph.toggleSubscribe(Sub(channelUrl, item.channelName, item.channelAvatar))
-                        }
+                        io.github.shoalapps.swordfish.ui.components.ChannelSubscribe(Sub(channelUrl, item.channelName, item.channelAvatar))
                     }
                 }
             }
@@ -1302,6 +1310,7 @@ private fun WatchDetails(vm: PlayerViewModel, onChannel: (String) -> Unit, modif
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item { LikePill(vm) }
+                    item { io.github.shoalapps.swordfish.ui.components.DownloadButton(item) }
                     item { ActionChip(Icons.Rounded.Share, "Share") { shareVideo(context, io.github.shoalapps.swordfish.data.FeedFilter.shareUrl(item.id, item.url)) } }
                     if (AppGraph.store.signedIn) {
                         item {
@@ -1522,7 +1531,7 @@ private fun DescriptionPanel(vm: PlayerViewModel, onLink: (String) -> Unit, modi
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp)),
                                 )
-                                Text(c.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                                Text(c.title, localise = false, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                                 Text(formatDuration(c.startMs / 1000), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                         }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">Zoeken</string>
+  <string name="shortcut_subs">Abonnementen</string>
+  <string name="shortcut_shorts">Shorts</string>
+</resources>

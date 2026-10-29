@@ -67,6 +67,7 @@ android {
     }
 
     packaging {
+        jniLibs.useLegacyPackaging = true
         resources {
             excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST")
         }
@@ -74,6 +75,9 @@ android {
 }
 
 dependencies {
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
     // YouTube proof-of-origin tokens (adapted from NewPipe), which use RxJava.
     implementation("io.reactivex.rxjava3:rxjava:3.1.10")
     // The same JSON library NewPipeExtractor uses.

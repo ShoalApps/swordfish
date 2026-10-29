@@ -89,6 +89,7 @@ class YouTubeRepo {
 
     /** Fetch details in the background; errors are ignored. */
     suspend fun prefetch(ids: List<String>) = coroutineScope {
+        if (!NetworkPolicy.backgroundAllowed()) return@coroutineScope
         ids.map { id -> async { runCatching { stream("https://www.youtube.com/watch?v=$id") } } }.awaitAll()
     }
 
@@ -99,6 +100,7 @@ class YouTubeRepo {
     /** A channel's picture, fetched once per session; null if it can't be found. */
     suspend fun channelAvatar(channelUrl: String): String? {
         avatarCache[channelUrl]?.let { return it.ifEmpty { null } }
+        if (NetworkPolicy.savingData()) return null
         return avatarGate.withPermit {
             avatarCache[channelUrl]?.let { return@withPermit it.ifEmpty { null } }
             val url = runCatching {
@@ -150,7 +152,7 @@ class YouTubeRepo {
                         extractor.fetchPage()
                         extractor.initialPage.items.filterIsInstance<StreamInfoItem>().map {
                             // Channel RSS feeds link Shorts as /shorts/ID; nothing else marks them.
-                            it.toVideo().let { v -> v.copy(channelAvatar = sub.avatar, isShort = v.isShort || v.url.contains("/shorts/")) }
+                            it.toVideo().let { v -> v.copy(channelUrl = sub.url, channelAvatar = sub.avatar, isShort = v.isShort || v.url.contains("/shorts/")) }
                         }
                     }.getOrDefault(emptyList())
                 }

@@ -31,8 +31,10 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class TubeApp : Application(), SingletonImageLoader.Factory {
+    override fun attachBaseContext(base: android.content.Context) { super.attachBaseContext(AppLanguage.wrap(base)) }
     override fun onCreate() {
         super.onCreate()
+        AppLanguage.init(this)
         Telemetry.init(this)
         DataMover.run(this)
         CrashReporter.install(this)
@@ -42,6 +44,19 @@ class TubeApp : Application(), SingletonImageLoader.Factory {
     /** Big memory + disk caches so thumbnails never reload when you scroll back up. */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
+            .components {
+                add(coil3.intercept.Interceptor { chain ->
+                    val request = if (io.github.shoalapps.swordfish.data.NetworkPolicy.savingData())
+                        chain.request.newBuilder().networkCachePolicy(coil3.request.CachePolicy.DISABLED).build()
+                    else chain.request
+                    val original = request.data as? String
+                    val preferred = original?.let(io.github.shoalapps.swordfish.data.ThumbnailUrls::preferred)
+                    if (preferred != null && preferred != original) {
+                        val result = chain.withRequest(request.newBuilder().data(preferred).build()).proceed()
+                        if (result is coil3.request.ErrorResult) chain.withRequest(request).proceed() else result
+                    } else chain.withRequest(request).proceed()
+                })
+            }
             .crossfade(200)
             .memoryCache {
                 MemoryCache.Builder()
@@ -73,6 +88,7 @@ object AppGraph {
     val sponsorBlock by lazy { SponsorBlock(http) }
     val deArrow by lazy { DeArrow(http) }
     val ryd by lazy { Ryd(http) }
+    val offline by lazy { io.github.shoalapps.swordfish.data.OfflineVideos(app) }
     val account by lazy { YouTubeAccount(http, store) }
 
     /** For fire-and-forget work that should outlive a screen (e.g. syncing a subscribe). */
@@ -81,8 +97,28 @@ object AppGraph {
     /** Subscribe/unsubscribe locally, and on YouTube too when signed in. */
     fun toggleSubscribe(sub: Sub) {
         val now = store.toggleSub(sub)
+        io.github.shoalapps.swordfish.data.SubscriptionNotifications.resetBaseline(app, sub.url)
         val id = channelIdOf(sub.url) ?: return
-        if (store.signedIn) scope.launch { runCatching { account.setSubscribed(id, now) } }
+        if (store.signedIn) scope.launch {
+            runCatching {
+                account.setSubscribed(id, now)
+                if (now) account.setNotifications(id, store.subs.value.first { it.url == sub.url }.notifications)
+            }.onFailure { subscriptionMessage("Saved on this phone. Couldn't sync the subscription to YouTube.") }
+        }
+    }
+
+    fun setNotifications(url: String, mode: io.github.shoalapps.swordfish.data.NotificationMode) {
+        store.setNotifications(url, mode)
+        io.github.shoalapps.swordfish.data.SubscriptionNotifications.resetBaseline(app, url)
+        val id = channelIdOf(url) ?: return
+        if (store.signedIn) scope.launch {
+            runCatching { account.setNotifications(id, mode) }
+                .onFailure { subscriptionMessage("Bell saved on this phone. Couldn't sync it to YouTube.") }
+        }
+    }
+
+    private fun subscriptionMessage(message: String) {
+        scope.launch(Dispatchers.Main) { android.widget.Toast.makeText(app, message, android.widget.Toast.LENGTH_LONG).show() }
     }
 
     /** After signing in: load the profile and pull in YouTube subscriptions. */
@@ -134,6 +170,7 @@ object AppGraph {
             return
         }
         val now = System.currentTimeMillis()
+        if (!force && !io.github.shoalapps.swordfish.data.NetworkPolicy.backgroundAllowed()) return
         if (!force && (!store.settings.value.autoUpdate || now - store.lastUpdateCheck < 20 * 3600_000L)) return
         scope.launch {
             val latest = runCatching { U.latest(http) }.getOrNull()
@@ -148,6 +185,10 @@ object AppGraph {
 
     /** Downloads the update and hands it to Android's installer, which asks the user to confirm. */
     fun installUpdate() {
+        if (!io.github.shoalapps.swordfish.data.NetworkPolicy.backgroundAllowed()) {
+            Update.message = "Data Saver is on. Connect to an unmetered network to download the update."
+            return
+        }
         val release = Update.available ?: return
         Update.available = null
         Update.progress = 0f
@@ -170,8 +211,10 @@ object AppGraph {
             cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
                 override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
                     online.value = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    io.github.shoalapps.swordfish.data.NetworkPolicy.changed()
+                    scope.launch { offline.reconcile() }
                 }
-                override fun onLost(network: android.net.Network) { online.value = false }
+                override fun onLost(network: android.net.Network) { online.value = false; scope.launch { offline.reconcile() } }
             })
         }
     }
@@ -183,7 +226,7 @@ object AppGraph {
     private fun warmUp() {
         scope.launch {
             kotlinx.coroutines.delay(2500) // let Home load first
-            if (store.settings.value.shortsDisabled) return@launch
+            if (store.settings.value.shortsDisabled || !io.github.shoalapps.swordfish.data.NetworkPolicy.backgroundAllowed()) return@launch
             val fromAccount = if (store.signedIn) runCatching { account.home().shorts }.getOrDefault(emptyList()) else emptyList()
             val more = if (fromAccount.size >= 20) emptyList() else runCatching { repo.shorts(store.subs.value) }.getOrDefault(emptyList())
             val list = (fromAccount + more).distinctBy { it.id }
@@ -222,6 +265,14 @@ object AppGraph {
         // does. Off until it's been tested on a connection YouTube isn't throttling; to try it:
         // YoutubeStreamExtractor.setPoTokenProvider(io.github.shoalapps.swordfish.data.potoken.PoTokenProviderImpl)
         if (store.signedIn && store.account.value == null) syncAccount()
+        scope.launch { store.settings.collect { offline.reconcile() } }
+        androidx.core.content.ContextCompat.registerReceiver(app, object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+                io.github.shoalapps.swordfish.data.NetworkPolicy.changed()
+                scope.launch { offline.reconcile() }
+            }
+        }, android.content.IntentFilter(android.net.ConnectivityManager.ACTION_RESTRICT_BACKGROUND_CHANGED), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        io.github.shoalapps.swordfish.data.SubscriptionNotifications.schedule(app)
         watchNetwork()
         warmUp()
     }

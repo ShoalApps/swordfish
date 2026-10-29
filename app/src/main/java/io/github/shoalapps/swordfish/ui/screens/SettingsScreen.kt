@@ -39,7 +39,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
+import io.github.shoalapps.swordfish.LocalisedIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -55,7 +55,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import io.github.shoalapps.swordfish.LocalisedText as Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -131,6 +131,8 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "app-language") { io.github.shoalapps.swordfish.AppLanguage.SettingsRow() }
+
         group("Appearance") {
             row { sh -> Segmented("Theme", listOf("Auto", "Light", "Dark"), s.theme, sh) { i -> update { it.copy(theme = i) } } }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -200,6 +202,35 @@ fun SettingsScreen(
             }
         }
 
+        group("Offline videos") {
+            row { sh -> Toggle("Keep the current video offline", "Download the whole video, then remove old automatic copies when you change videos", s.cacheCurrentVideo, sh) { v -> update { it.copy(cacheCurrentVideo = v) } } }
+            row { sh ->
+                Tile(sh) {
+                    var count by remember(s.autoDownloadCount) { mutableStateOf(s.autoDownloadCount.toString()) }
+                    OutlinedTextField(value = count, onValueChange = { value ->
+                        if (value.isEmpty() || value.all { it.isDigit() } && value.length <= 2) {
+                            count = value
+                            value.toIntOrNull()?.let { n -> if (n in 0..50) update { it.copy(autoDownloadCount = n) } }
+                        }
+                    }, label = { Text("Recommended videos to keep offline (0-50)") },
+                        supportingText = { Text("4 by default. Set 0 to turn off recommended downloads.") }, singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                }
+            }
+            row { sh -> Toggle("Allow downloads on mobile data", "Off by default. Applies to saved and automatic videos. Data Saver always pauses downloads on metered networks.", !s.downloadWifiOnly, sh) { v -> update { it.copy(downloadWifiOnly = !v) } } }
+            row { sh -> Row2("Your downloads", "Open You to play, keep or remove offline videos", sh) {} }
+        }
+
+        group("Notifications") {
+            row { sh -> Link("Default bell for new subscriptions", s.defaultNotifications.label, sh) {
+                choice = Choice("Default notification bell", io.github.shoalapps.swordfish.data.NotificationMode.entries.map { it.label to it.name }, s.defaultNotifications.name) { v -> update { it.copy(defaultNotifications = io.github.shoalapps.swordfish.data.NotificationMode.valueOf(v)) } }
+            } }
+            row { sh -> Link("Daily notification limit", "${s.notificationDailyLimit} notifications per day", sh) {
+                choice = Choice("Daily notification limit", listOf(0, 1, 3, 5, 10, 20, 50).map { (if (it == 0) "Off" else "$it per day") to it.toString() }, s.notificationDailyLimit.toString()) { v -> update { it.copy(notificationDailyLimit = v.toInt()) } }
+            } }
+            row { sh -> Row2("Bell options", "All: new uploads. Personalised: the latest new upload per channel per check. None: no alerts. Checks run about every 30 minutes when Android allows; Data Saver pauses checks on metered networks.", sh) {} }
+        }
+
         group("Playback") {
             row { sh -> Toggle("Autoplay", "Play the next video when one ends", s.autoplayNext, sh) { v -> update { it.copy(autoplayNext = v) } } }
             row { sh -> Toggle("Background play", "Keep audio playing with the screen off or app closed", s.backgroundPlay, sh) { v -> update { it.copy(backgroundPlay = v) } } }
@@ -241,6 +272,7 @@ fun SettingsScreen(
         }
 
         group("More") {
+            row { sh -> Link("What's new", "Changes in this version", sh) { io.github.shoalapps.swordfish.WhatsNew.open() } }
             row { sh ->
                 val context = androidx.compose.ui.platform.LocalContext.current
                 Link("TV mode", "YouTube's TV interface for big screens, remotes and controllers", sh) {
@@ -681,7 +713,7 @@ private fun Segmented(title: String, labels: List<String>, selected: Int, shapes
 private fun ChoiceDialog(c: Choice, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(c.title) },
+        title = { Text(c.title, localise = false) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 c.options.forEach { (label, value) ->

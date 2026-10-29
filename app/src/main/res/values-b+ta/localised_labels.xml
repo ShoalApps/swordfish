@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shortcut_search">தேடு</string>
+  <string name="shortcut_subs">சந்தாக்கள்</string>
+  <string name="shortcut_shorts">குறுக்குகள்</string>
+</resources>

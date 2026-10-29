@@ -2,6 +2,9 @@ package io.github.shoalapps.swordfish
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasContentDescription
@@ -53,6 +56,10 @@ abstract class TubeTest {
         runCatching { compose.waitUntil(15_000) { StartupState.homeReady } }
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
+        if (compose.onAllNodesWithText("Let's dive in").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Let's dive in").performClick()
+            compose.waitForIdle()
+        }
     }
 
     @After
