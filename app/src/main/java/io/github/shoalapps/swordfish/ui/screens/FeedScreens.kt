@@ -2,6 +2,7 @@
 
 package io.github.shoalapps.swordfish.ui.screens
 
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -666,7 +667,7 @@ fun YouScreen(
         },
     ) { pad ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
+            Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()).testTag("you-list"),
             contentPadding = listPadding(LocalBottomPadding.current),
         ) {
             item(key = "header") {

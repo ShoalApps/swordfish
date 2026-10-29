@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,8 +27,10 @@ class NavigationTest : TubeTest() {
         waitFor(hasText("Subscriptions") and !androidx.compose.ui.test.isSelectable())
 
         tab("You").performClick()
-        waitForText("About Swordfish")
+        waitForText("Sign in")
         compose.onNodeWithText("Sign in").assertExists()
+        compose.onNodeWithTag("you-list").performScrollToNode(hasText("About Swordfish"))
+        compose.onNodeWithText("About Swordfish").assertExists()
 
         tab("Shorts").performClick()
         tab("Shorts").assertIsSelected()
@@ -56,10 +60,12 @@ class NavigationTest : TubeTest() {
 
     @Test fun aboutPageOpens() {
         tab("You").performClick()
+        compose.onNodeWithTag("you-list").performScrollToNode(hasText("About Swordfish"))
         compose.onNodeWithText("About Swordfish").performClick()
         waitForDescription("Back")
         compose.onNodeWithContentDescription("Back").performClick()
-        waitForText("About Swordfish")
+        compose.onNodeWithTag("you-list").performScrollToNode(hasText("About Swordfish"))
+        compose.onNodeWithText("About Swordfish").assertExists()
     }
 
     @Test fun survivesRotationOnEveryTab() {
