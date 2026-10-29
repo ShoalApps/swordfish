@@ -28,7 +28,7 @@ const about = () => ({
     latestVersion: '',
     platform: 'android',
     arch: 'arm64',
-    installationType: 'pufferfish',
+    installationType: 'swordfish',
     canAutoUpdate: false,
     progress: null,
 })

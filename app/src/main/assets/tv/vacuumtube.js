@@ -1,13 +1,13 @@
-/* Anglerfish TV mode. Includes VacuumTube 2.0.1 (https://github.com/shy1132/VacuumTube), MIT License, Copyright (c) 2025-2026 shy. */
+/* Swordfish TV mode. Includes VacuumTube 2.0.1 (https://github.com/shy1132/VacuumTube), MIT License, Copyright (c) 2025-2026 shy. */
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __commonJS = (cb, mod) => function __require() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
 
-  // swordfish/tv/trusted-types.js
+  // tv/trusted-types.js
   var require_trusted_types = __commonJS({
-    "swordfish/tv/trusted-types.js"() {
+    "tv/trusted-types.js"() {
       if (window.trustedTypes && window.trustedTypes.createPolicy && !window.trustedTypes.defaultPolicy) {
         try {
           window.trustedTypes.createPolicy("default", { createHTML: (s) => s, createScript: (s) => s, createScriptURL: (s) => s });
@@ -18,9 +18,9 @@
     }
   });
 
-  // swordfish/tv/gamepad.js
+  // tv/gamepad.js
   var require_gamepad = __commonJS({
-    "swordfish/tv/gamepad.js"() {
+    "tv/gamepad.js"() {
       var pad = {
         id: "Shoal controller (STANDARD GAMEPAD)",
         index: 0,
@@ -64,9 +64,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/functions.js
+  // tv/vacuumtube/preload/util/functions.js
   var require_functions = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/functions.js"(exports, module) {
+    "tv/vacuumtube/preload/util/functions.js"(exports, module) {
       function el(tag, attrs = {}, children = []) {
         const element = document.createElement(tag);
         for (const [key, value] of Object.entries(attrs)) {
@@ -140,9 +140,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/xhrModifiers.js
+  // tv/vacuumtube/preload/util/xhrModifiers.js
   var require_xhrModifiers = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/xhrModifiers.js"(exports, module) {
+    "tv/vacuumtube/preload/util/xhrModifiers.js"(exports, module) {
       var functions = require_functions();
       var responseModifiers = [];
       var requestModifiers = [];
@@ -285,9 +285,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/configOverrides.js
+  // tv/vacuumtube/preload/util/configOverrides.js
   var require_configOverrides = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/configOverrides.js"(exports, module) {
+    "tv/vacuumtube/preload/util/configOverrides.js"(exports, module) {
       var functions = require_functions();
       var ytcfgOverrides = [];
       var environmentOverrides = [];
@@ -349,9 +349,9 @@
     }
   });
 
-  // swordfish/tv/shims/css.js
+  // tv/shims/css.js
   var require_css = __commonJS({
-    "swordfish/tv/shims/css.js"(exports, module) {
+    "tv/shims/css.js"(exports, module) {
       var sheets = /* @__PURE__ */ new Map();
       function apply() {
         if ("adoptedStyleSheets" in document && typeof CSSStyleSheet.prototype.replaceSync === "function") {
@@ -388,9 +388,9 @@
     }
   });
 
-  // swordfish/tv/touch.js
+  // tv/touch.js
   var require_touch = __commonJS({
-    "swordfish/tv/touch.js"(exports, module) {
+    "tv/touch.js"(exports, module) {
       var overrides = require_configOverrides();
       var css = require_css();
       function scrollTarget(node) {
@@ -469,9 +469,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/jsonModifiers.js
+  // tv/vacuumtube/preload/util/jsonModifiers.js
   var require_jsonModifiers = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/jsonModifiers.js"(exports, module) {
+    "tv/vacuumtube/preload/util/jsonModifiers.js"(exports, module) {
       var modifiers = [];
       var jsonParse = JSON.parse;
       JSON.parse = function(...args) {
@@ -502,9 +502,9 @@
     }
   });
 
-  // swordfish/tv/shims/electron.js
+  // tv/shims/electron.js
   var require_electron = __commonJS({
-    "swordfish/tv/shims/electron.js"(exports, module) {
+    "tv/shims/electron.js"(exports, module) {
       var defaults = require_vt_config_defaults();
       var bridge = window.PufferfishTV;
       var listeners = {};
@@ -540,7 +540,7 @@
         latestVersion: "",
         platform: "android",
         arch: "arm64",
-        installationType: "pufferfish",
+        installationType: "swordfish",
         canAutoUpdate: false,
         progress: null
       });
@@ -603,9 +603,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/config.js
+  // tv/vacuumtube/preload/config.js
   var require_config = __commonJS({
-    "swordfish/tv/vacuumtube/preload/config.js"(exports, module) {
+    "tv/vacuumtube/preload/config.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var config = ipcRenderer.sendSync("get-config");
       var sharedConfig = { ...config };
@@ -628,9 +628,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/adblock.js
+  // tv/vacuumtube/preload/modules/adblock.js
   var require_adblock = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/adblock.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/adblock.js"(exports, module) {
       var jsonMod = require_jsonModifiers();
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
@@ -686,9 +686,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/block-continue-watching.js
+  // tv/vacuumtube/preload/modules/block-continue-watching.js
   var require_block_continue_watching = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/block-continue-watching.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/block-continue-watching.js"(exports, module) {
       var jsonMod = require_jsonModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -707,9 +707,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/resolveCommandModifiers.js
+  // tv/vacuumtube/preload/util/resolveCommandModifiers.js
   var require_resolveCommandModifiers = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/resolveCommandModifiers.js"(exports, module) {
+    "tv/vacuumtube/preload/util/resolveCommandModifiers.js"(exports, module) {
       var inputModifiers = [];
       var outputModifiers = [];
       var globalResolveCommand;
@@ -756,9 +756,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/block-sign-in-popup.js
+  // tv/vacuumtube/preload/modules/block-sign-in-popup.js
   var require_block_sign_in_popup = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/block-sign-in-popup.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/block-sign-in-popup.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       module.exports = () => {
         rcMod.addInputModifier((c) => {
@@ -769,16 +769,16 @@
     }
   });
 
-  // swordfish/tv/shims/os.js
+  // tv/shims/os.js
   var require_os = __commonJS({
-    "swordfish/tv/shims/os.js"(exports, module) {
+    "tv/shims/os.js"(exports, module) {
       module.exports = { hostname: () => "Shoal", platform: () => "android", release: () => "", arch: () => "arm64", networkInterfaces: () => ({}), type: () => "Linux" };
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/cast-label.js
+  // tv/vacuumtube/preload/modules/cast-label.js
   var require_cast_label = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/cast-label.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/cast-label.js"(exports, module) {
       var os = require_os();
       var configOverrides = require_configOverrides();
       var hostname = os.hostname();
@@ -796,9 +796,9 @@
     }
   });
 
-  // swordfish/tv/node_modules/events/events.js
+  // tv/node_modules/events/events.js
   var require_events = __commonJS({
-    "swordfish/tv/node_modules/events/events.js"(exports, module) {
+    "tv/node_modules/events/events.js"(exports, module) {
       "use strict";
       var R = typeof Reflect === "object" ? Reflect : null;
       var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply2(target, receiver, args) {
@@ -1165,9 +1165,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/controller.js
+  // tv/vacuumtube/preload/util/controller.js
   var require_controller = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/controller.js"(exports, module) {
+    "tv/vacuumtube/preload/util/controller.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var { EventEmitter } = require_events();
       var emitter = new EventEmitter();
@@ -1286,9 +1286,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/ui.js
+  // tv/vacuumtube/preload/util/ui.js
   var require_ui = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/ui.js"(exports, module) {
+    "tv/vacuumtube/preload/util/ui.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       function toast(title, subtitle) {
         let toastCommand = {
@@ -2030,9 +2030,9 @@
     }
   });
 
-  // swordfish/tv/shims/path.js
+  // tv/shims/path.js
   var require_path = __commonJS({
-    "swordfish/tv/shims/path.js"(exports, module) {
+    "tv/shims/path.js"(exports, module) {
       function normalize(p) {
         const abs = p.startsWith("/");
         const out = [];
@@ -2065,9 +2065,9 @@
     }
   });
 
-  // swordfish/tv/shims/fs.js
+  // tv/shims/fs.js
   var require_fs = __commonJS({
-    "swordfish/tv/shims/fs.js"(exports, module) {
+    "tv/shims/fs.js"(exports, module) {
       var files = require_vt_files();
       function norm(p) {
         return require_path().normalize(p);
@@ -2117,9 +2117,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/localeProvider.js
+  // tv/vacuumtube/preload/util/localeProvider.js
   var require_localeProvider = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/localeProvider.js"(exports, module) {
+    "tv/vacuumtube/preload/util/localeProvider.js"(exports, module) {
       var __dirname = "/vt/src/preload/util";
       var fs = require_fs();
       var path = require_path();
@@ -2188,9 +2188,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/controller-support.js
+  // tv/vacuumtube/preload/modules/controller-support.js
   var require_controller_support = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/controller-support.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/controller-support.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var controller = require_controller();
       var ui = require_ui();
@@ -2241,9 +2241,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/css.js
+  // tv/vacuumtube/preload/modules/css.js
   var require_css2 = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/css.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/css.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules";
       var fs = require_fs();
       var path = require_path();
@@ -2256,9 +2256,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/dearrow.js
+  // tv/vacuumtube/preload/modules/dearrow.js
   var require_dearrow = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/dearrow.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/dearrow.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -2367,9 +2367,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/disable-direct-sign-in.js
+  // tv/vacuumtube/preload/modules/disable-direct-sign-in.js
   var require_disable_direct_sign_in = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/disable-direct-sign-in.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/disable-direct-sign-in.js"(exports, module) {
       var configOverrides = require_configOverrides();
       module.exports = async () => {
         configOverrides.environmentOverrides.push({
@@ -2381,9 +2381,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/encryption-notice.js
+  // tv/vacuumtube/preload/modules/encryption-notice.js
   var require_encryption_notice = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/encryption-notice.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/encryption-notice.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       var localeProvider = require_localeProvider();
       module.exports = async () => {
@@ -2486,9 +2486,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/fix-exit.js
+  // tv/vacuumtube/preload/modules/fix-exit.js
   var require_fix_exit = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/fix-exit.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/fix-exit.js"(exports, module) {
       var rcMod = require_resolveCommandModifiers();
       module.exports = () => {
         rcMod.addInputModifier((command) => {
@@ -2502,9 +2502,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/fix-reloads.js
+  // tv/vacuumtube/preload/modules/fix-reloads.js
   var require_fix_reloads = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/fix-reloads.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/fix-reloads.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var rcMod = require_resolveCommandModifiers();
       module.exports = () => {
@@ -2517,9 +2517,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/fix-voice.js
+  // tv/vacuumtube/preload/modules/fix-voice.js
   var require_fix_voice = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/fix-voice.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/fix-voice.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configOverrides = require_configOverrides();
       var functions = require_functions();
@@ -2591,9 +2591,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/guide-tabs.js
+  // tv/vacuumtube/preload/modules/guide-tabs.js
   var require_guide_tabs = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/guide-tabs.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/guide-tabs.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -2627,9 +2627,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h264ify.js
+  // tv/vacuumtube/preload/modules/h264ify.js
   var require_h264ify = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h264ify.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h264ify.js"(exports, module) {
       var configManager = require_config();
       var config = configManager.get();
       module.exports = () => {
@@ -2652,9 +2652,9 @@
     }
   });
 
-  // swordfish/tv/shims/unavailable.js
+  // tv/shims/unavailable.js
   var require_unavailable = __commonJS({
-    "swordfish/tv/shims/unavailable.js"(exports, module) {
+    "tv/shims/unavailable.js"(exports, module) {
       function inert() {
         const obj = {};
         for (const name of ["on", "once", "off", "bind", "listen", "close", "send", "setBroadcast", "setMulticastTTL", "addMembership", "dropMembership", "address", "removeAllListeners", "end", "write"]) {
@@ -2672,9 +2672,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/net.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/net.js
   var require_net = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/net.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/net.js"(exports, module) {
       var os = require_os();
       var dgram = require_unavailable();
       function toInt(address) {
@@ -2731,9 +2731,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/constants.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/constants.js
   var require_constants = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/constants.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/constants.js"(exports, module) {
       var os = require_os();
       var crypto2 = require_unavailable();
       var package2 = require_vt_package();
@@ -2764,9 +2764,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/http.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/http.js
   var require_http = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/http.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/http.js"(exports, module) {
       var http = require_unavailable();
       var net = require_net();
       var constants = require_constants();
@@ -2816,9 +2816,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/server.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/server.js
   var require_server = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/server.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/server.js"(exports, module) {
       var http = require_http();
       var constants = require_constants();
       var package2 = require_vt_package();
@@ -2938,9 +2938,9 @@
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/discover.js
+  // tv/vacuumtube/preload/modules/h5vcc/dial/discover.js
   var require_discover = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h5vcc/dial/discover.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/dial/discover.js"(exports, module) {
       var dgram = require_unavailable();
       var http = require_http();
       var net = require_net();
@@ -3050,9 +3050,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/h5vcc/index.js
+  // tv/vacuumtube/preload/modules/h5vcc/index.js
   var require_h5vcc = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/h5vcc/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/h5vcc/index.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var http = require_http();
       var DialServer = require_server();
@@ -3141,9 +3141,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/hide-shorts.js
+  // tv/vacuumtube/preload/modules/hide-shorts.js
   var require_hide_shorts = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/hide-shorts.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/hide-shorts.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -3163,9 +3163,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/patchFunction.js
+  // tv/vacuumtube/preload/util/patchFunction.js
   var require_patchFunction = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/patchFunction.js"(exports, module) {
+    "tv/vacuumtube/preload/util/patchFunction.js"(exports, module) {
       function patchFunction(obj, func, modifier) {
         let originalFunc = obj[func];
         let patched = function(...args) {
@@ -3177,9 +3177,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/util/shortcuts.js
+  // tv/vacuumtube/preload/util/shortcuts.js
   var require_shortcuts = __commonJS({
-    "swordfish/tv/vacuumtube/preload/util/shortcuts.js"(exports, module) {
+    "tv/vacuumtube/preload/util/shortcuts.js"(exports, module) {
       function isSettingsOpen() {
         let root = document.getElementById("vt-settings-overlay-root");
         return !!root && !root.classList.contains("vt-settings-hidden");
@@ -3195,9 +3195,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/keybinds.js
+  // tv/vacuumtube/preload/modules/keybinds.js
   var require_keybinds = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/keybinds.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/keybinds.js"(exports, module) {
       var ui = require_ui();
       var rcMod = require_resolveCommandModifiers();
       var patchFunction = require_patchFunction();
@@ -3299,9 +3299,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/leanback-settings.js
+  // tv/vacuumtube/preload/modules/leanback-settings.js
   var require_leanback_settings = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/leanback-settings.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/leanback-settings.js"(exports, module) {
       var { shell } = require_electron();
       var configManager = require_config();
       var jsonMod = require_jsonModifiers();
@@ -3413,9 +3413,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/low-memory-mode.js
+  // tv/vacuumtube/preload/modules/low-memory-mode.js
   var require_low_memory_mode = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/low-memory-mode.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/low-memory-mode.js"(exports, module) {
       var configManager = require_config();
       var configOverrides = require_configOverrides();
       module.exports = () => {
@@ -3431,9 +3431,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/media-capabilities.js
+  // tv/vacuumtube/preload/modules/media-capabilities.js
   var require_media_capabilities = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/media-capabilities.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/media-capabilities.js"(exports, module) {
       var checks = {
         width: (value) => Number(value) > 0 && Number(value) <= 7680,
         //8k width
@@ -3481,9 +3481,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/mouse.js
+  // tv/vacuumtube/preload/modules/mouse.js
   var require_mouse = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/mouse.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/mouse.js"(exports, module) {
       var shortcuts = require_shortcuts();
       module.exports = () => {
         const BACK = 32769;
@@ -3556,9 +3556,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/music-mode/player-response.js
+  // tv/vacuumtube/preload/modules/music-mode/player-response.js
   var require_player_response = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/music-mode/player-response.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/music-mode/player-response.js"(exports, module) {
       function isObject(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value);
       }
@@ -3653,9 +3653,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/music-mode/index.js
+  // tv/vacuumtube/preload/modules/music-mode/index.js
   var require_music_mode = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/music-mode/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/music-mode/index.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var jsonModifiers = require_jsonModifiers();
@@ -3798,9 +3798,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/no-f11.js
+  // tv/vacuumtube/preload/modules/no-f11.js
   var require_no_f11 = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/no-f11.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/no-f11.js"(exports, module) {
       module.exports = () => {
         document.addEventListener("keydown", (e) => {
           if (e.key === "F11") {
@@ -3811,9 +3811,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/pause-on-blur.js
+  // tv/vacuumtube/preload/modules/pause-on-blur.js
   var require_pause_on_blur = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/pause-on-blur.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/pause-on-blur.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var rcMod = require_resolveCommandModifiers();
@@ -3843,9 +3843,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/remaining-time.js
+  // tv/vacuumtube/preload/modules/remaining-time.js
   var require_remaining_time = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/remaining-time.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/remaining-time.js"(exports, module) {
       var configManager = require_config();
       var shortcuts = require_shortcuts();
       function isEnabled(config) {
@@ -3933,9 +3933,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/remove-super-resolution.js
+  // tv/vacuumtube/preload/modules/remove-super-resolution.js
   var require_remove_super_resolution = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/remove-super-resolution.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/remove-super-resolution.js"(exports, module) {
       var jsonMod = require_jsonModifiers();
       var configManager = require_config();
       var config = configManager.get();
@@ -3950,9 +3950,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/return-youtube-dislike.js
+  // tv/vacuumtube/preload/modules/return-youtube-dislike.js
   var require_return_youtube_dislike = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/return-youtube-dislike.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/return-youtube-dislike.js"(exports, module) {
       var xhrModifiers = require_xhrModifiers();
       var localeProvider = require_localeProvider();
       var configManager = require_config();
@@ -4010,9 +4010,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/render.js
+  // tv/vacuumtube/preload/modules/settings/render.js
   var require_render = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/render.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/render.js"(exports, module) {
       var configManager = require_config();
       var { el } = require_functions();
       function rowId(row) {
@@ -4169,9 +4169,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/overlay.js
+  // tv/vacuumtube/preload/modules/settings/overlay.js
   var require_overlay = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/overlay.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/overlay.js"(exports, module) {
       var { el } = require_functions();
       function create(categories, locale, actions) {
         const tabs = categories.map((category, index) => {
@@ -4246,9 +4246,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/scroll.js
+  // tv/vacuumtube/preload/modules/settings/scroll.js
   var require_scroll = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/scroll.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/scroll.js"(exports, module) {
       var MARGIN = 16;
       var viewport = null;
       var list = null;
@@ -4330,9 +4330,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/nav.js
+  // tv/vacuumtube/preload/modules/settings/nav.js
   var require_nav = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/nav.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/nav.js"(exports, module) {
       function gap(a1, a2, b1, b2) {
         return Math.max(0, b1 - a2, a1 - b2);
       }
@@ -4396,9 +4396,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/focus.js
+  // tv/vacuumtube/preload/modules/settings/focus.js
   var require_focus = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/focus.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/focus.js"(exports, module) {
       var overlay = require_overlay();
       var scroll = require_scroll();
       var { findNext } = require_nav();
@@ -4459,9 +4459,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/input.js
+  // tv/vacuumtube/preload/modules/settings/input.js
   var require_input = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/input.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/input.js"(exports, module) {
       var controller = require_controller();
       var directions = {
         "ArrowUp": "up",
@@ -4541,9 +4541,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/about.js
+  // tv/vacuumtube/preload/modules/settings/pages/about.js
   var require_about = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/about.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/about.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/settings/pages";
       var fs = require_fs();
       var path = require_path();
@@ -4668,9 +4668,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/sponsorblock.js
+  // tv/vacuumtube/preload/modules/settings/pages/sponsorblock.js
   var require_sponsorblock = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/sponsorblock.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/sponsorblock.js"(exports, module) {
       var CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler"];
       var SPONSORBLOCK_KEYS = CATEGORIES.map((name) => `sponsorblock_skip_${name}`);
       module.exports = {
@@ -4688,9 +4688,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/h264ify.js
+  // tv/vacuumtube/preload/modules/settings/pages/h264ify.js
   var require_h264ify2 = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/h264ify.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/h264ify.js"(exports, module) {
       var CODECS = { webm: "WebM", vp8: "VP8", vp9: "VP9", av1: "AV1" };
       var CODEC_KEYS = Object.keys(CODECS).map((id) => `h264ify_disable_${id}`);
       module.exports = {
@@ -4709,9 +4709,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/guide-tabs.js
+  // tv/vacuumtube/preload/modules/settings/pages/guide-tabs.js
   var require_guide_tabs2 = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/guide-tabs.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/guide-tabs.js"(exports, module) {
       var configManager = require_config();
       var GUIDE_TABS = ["search", "shorts", "subscriptions", "library", "gaming", "music", "news", "podcasts", "movies_and_tv", "live", "sports"];
       module.exports = {
@@ -4733,9 +4733,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/userstyles.js
+  // tv/vacuumtube/preload/modules/settings/pages/userstyles.js
   var require_userstyles = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/userstyles.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/userstyles.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       async function getStyles() {
@@ -4776,9 +4776,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/features.js
+  // tv/vacuumtube/preload/modules/settings/pages/features.js
   var require_features = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/features.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/features.js"(exports, module) {
       module.exports = {
         id: "features",
         title: (locale) => locale.features.title,
@@ -4809,9 +4809,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/mac-permissions.js
+  // tv/vacuumtube/preload/modules/settings/pages/mac-permissions.js
   var require_mac_permissions = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/mac-permissions.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/mac-permissions.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var status = null;
       var message = "";
@@ -4876,9 +4876,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/pages/index.js
+  // tv/vacuumtube/preload/modules/settings/pages/index.js
   var require_pages = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/pages/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/pages/index.js"(exports, module) {
       var pages = [
         require_about(),
         require_sponsorblock(),
@@ -4892,9 +4892,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/schema.js
+  // tv/vacuumtube/preload/modules/settings/schema.js
   var require_schema = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/schema.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/schema.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var { SPONSORBLOCK_KEYS } = require_sponsorblock();
       var { CODEC_KEYS } = require_h264ify2();
@@ -5032,9 +5032,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/settings/index.js
+  // tv/vacuumtube/preload/modules/settings/index.js
   var require_settings = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/settings/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/settings/index.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/settings";
       var fs = require_fs();
       var path = require_path();
@@ -5193,9 +5193,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/speed-control/index.js
+  // tv/vacuumtube/preload/modules/speed-control/index.js
   var require_speed_control = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/speed-control/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/speed-control/index.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/speed-control";
       var fs = require_fs();
       var path = require_path();
@@ -5286,9 +5286,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/sponsorblock.js
+  // tv/vacuumtube/preload/modules/sponsorblock.js
   var require_sponsorblock2 = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/sponsorblock.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/sponsorblock.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var ui = require_ui();
       var css = require_css();
@@ -5447,9 +5447,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/support-webp.js
+  // tv/vacuumtube/preload/modules/support-webp.js
   var require_support_webp = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/support-webp.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/support-webp.js"(exports, module) {
       var configOverrides = require_configOverrides();
       module.exports = () => {
         configOverrides.ytcfgOverrides.push({
@@ -5463,9 +5463,9 @@ ${headersText}\r
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/ultrawide.js
+  // tv/vacuumtube/preload/modules/ultrawide.js
   var require_ultrawide = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/ultrawide.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/ultrawide.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var css = require_css();
@@ -5510,9 +5510,9 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/userstyles.js
+  // tv/vacuumtube/preload/modules/userstyles.js
   var require_userstyles2 = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/userstyles.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/userstyles.js"(exports, module) {
       var { ipcRenderer } = require_electron();
       var configManager = require_config();
       var functions = require_functions();
@@ -5606,9 +5606,9 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/voice-privacy-notice.js
+  // tv/vacuumtube/preload/modules/voice-privacy-notice.js
   var require_voice_privacy_notice = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/voice-privacy-notice.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/voice-privacy-notice.js"(exports, module) {
       var configOverrides = require_configOverrides();
       module.exports = () => {
         if (false) return;
@@ -5621,9 +5621,9 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // swordfish/tv/vacuumtube/preload/modules/volume-control/index.js
+  // tv/vacuumtube/preload/modules/volume-control/index.js
   var require_volume_control = __commonJS({
-    "swordfish/tv/vacuumtube/preload/modules/volume-control/index.js"(exports, module) {
+    "tv/vacuumtube/preload/modules/volume-control/index.js"(exports, module) {
       var __dirname = "/vt/src/preload/modules/volume-control";
       var fs = require_fs();
       var path = require_path();
@@ -5786,7 +5786,7 @@ ytlr-welcome-immersive-value-prop
     }
   });
 
-  // swordfish/tv/entry.js
+  // tv/entry.js
   require_trusted_types();
   require_gamepad();
   if (location.host === "www.youtube.com" && location.pathname === "/tv") {
