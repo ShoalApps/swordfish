@@ -166,8 +166,6 @@ class HomeViewModel : ViewModel() {
         if (learning) listOf("All") + AppGraph.store.settings.value.learningTopics.mapNotNull { LearningTopics.of(it)?.label }
         else homeChips
 
-    init { load() }
-
     fun select(c: String) {
         if (c == chip && items.isNotEmpty()) return
         chip = c
@@ -188,7 +186,7 @@ class HomeViewModel : ViewModel() {
         job = viewModelScope.launch {
             try {
                 if (io.github.shoalapps.swordfish.player.NetworkInfo.offline()) {
-                    items = AppGraph.offline.videos.value.filter { it.complete }.map { it.video }
+                    items = FeedFilter.apply(AppGraph.offline.videos.value.filter { it.complete }.map { it.video })
                     shorts = emptyList()
                     return@launch
                 }
@@ -265,7 +263,7 @@ fun HomeScreen(
     LaunchedEffect(cookie, pageId, settings.feedMode, settings.learningTopics, settings.shortsDisabled) { vm.reloadIfChanged() }
     // Back online after a failed load: try again without making the user tap.
     val online by AppGraph.online.collectAsState()
-    LaunchedEffect(online) { if (online && vm.error != null) vm.refresh() }
+    LaunchedEffect(online) { vm.refresh() }
     var showFeedSheet by remember { mutableStateOf(false) }
     val columns = feedColumns()
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -295,6 +293,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()),
         ) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding(LocalBottomPadding.current)) {
+                item(key = "offline-status") { io.github.shoalapps.swordfish.ui.components.OfflineStatus() }
                 item(key = "chips") {
                     Chips(vm.chips(), vm.chip, vm::select, onExplore = { showFeedSheet = true }, learning = vm.learning)
                 }
@@ -498,6 +497,11 @@ class SubsViewModel : ViewModel() {
         job?.cancel()
         job = viewModelScope.launch {
             try {
+                if (io.github.shoalapps.swordfish.player.NetworkInfo.offline()) {
+                    val urls = subs.map { it.url }.toSet()
+                    items = FeedFilter.apply(AppGraph.offline.videos.value.filter { it.complete && it.video.channelUrl in urls }.map { it.video })
+                    return@launch
+                }
                 val fromAccount = if (AppGraph.store.signedIn) {
                     runCatching { AppGraph.account.subscriptionFeed() }.getOrDefault(emptyList())
                 } else emptyList()
@@ -531,7 +535,7 @@ fun SubscriptionsScreen(
     LaunchedEffect(subs, cookie) { vm.loadIfNeeded() }
     val columns = feedColumns()
     val online by AppGraph.online.collectAsState()
-    LaunchedEffect(online) { if (online && vm.error != null) vm.load(false) }
+    LaunchedEffect(online) { vm.load(false) }
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -646,7 +650,11 @@ fun YouScreen(
     val localHistory by AppGraph.store.history.collectAsState()
     LaunchedEffect(cookie) { vm.load() }
     val signedIn = cookie?.contains("SAPISID") == true
-    val history = if (signedIn && vm.ytHistory.isNotEmpty()) vm.ytHistory else localHistory
+    val online by AppGraph.online.collectAsState()
+    val downloads by AppGraph.offline.videos.collectAsState()
+    val sourceHistory = if (signedIn && vm.ytHistory.isNotEmpty()) vm.ytHistory else localHistory
+    val downloadedIds = downloads.filter { it.complete }.map { it.video.id }.toSet()
+    val history = if (online) sourceHistory else sourceHistory.filter { it.id in downloadedIds }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -691,6 +699,7 @@ fun YouScreen(
                 }
             }
 
+            item(key = "offline-status") { io.github.shoalapps.swordfish.ui.components.OfflineStatus() }
             item(key = "downloads") { io.github.shoalapps.swordfish.ui.components.Downloads(onVideo) }
 
             item(key = "history-head") {
@@ -789,8 +798,6 @@ class PlaylistViewModel(private val browseId: String) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
 
-    init { load() }
-
     fun load() {
         loading = true; error = null
         viewModelScope.launch {
@@ -809,6 +816,8 @@ fun PlaylistScreen(
     onVideo: (VideoItem) -> Unit,
     vm: PlaylistViewModel = viewModel(key = browseId) { PlaylistViewModel(browseId) },
 ) {
+    val online by AppGraph.online.collectAsState()
+    LaunchedEffect(online) { vm.load() }
     val title = when (browseId) {
         "VLWL" -> "Watch later"
         "VLLL" -> "Liked videos"

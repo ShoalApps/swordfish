@@ -1,5 +1,6 @@
 package io.github.shoalapps.swordfish.data
 
+import io.github.shoalapps.swordfish.AppGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -30,6 +31,20 @@ data class AccountFeed(val videos: List<VideoItem>, val shorts: List<VideoItem>)
  * using the cookies captured by the sign-in page.
  */
 class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
+    internal suspend fun perform(action: OfflineAction) = withContext(ActionOwner(action.account)) {
+        when (action.kind) {
+            "subscription" -> sendSetSubscribed(action.target, action.value.toBooleanStrict())
+            "bell" -> sendSetNotifications(action.target, NotificationMode.valueOf(action.value))
+            "rating" -> sendRate(action.target, action.value)
+            "comment" -> sendPostComment(action.target, action.value)
+            "reply" -> sendReplyToComment(action.target, action.extra, action.value)
+            "watchLater" -> sendSaveToWatchLater(action.target)
+            "commentRating" -> sendRateComment(action.target.substringBefore('|'), action.target.substringAfter('|'),
+                io.github.shoalapps.swordfish.player.Rating.valueOf(action.extra), io.github.shoalapps.swordfish.player.Rating.valueOf(action.value))
+            else -> throw IOException("Unsupported saved action")
+        }
+    }
+
     private val origin = "https://www.youtube.com"
 
     private fun version(): String = "2.20260930.01.00"
@@ -64,6 +79,9 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
             val v = version()
             val locale = Locale.getDefault()
             val pageId = if (useChannel) store.pageId.value else null
+            val expected = kotlinx.coroutines.currentCoroutineContext()[ActionOwner]?.identity
+            if (expected != null && AppGraph.actions.identity(cookie, pageId) != expected)
+                throw IOException("This action belongs to a different sign-in or channel")
             val body = buildJsonObject {
                 putJsonObject("context") {
                     putJsonObject("client") {
@@ -192,8 +210,12 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
     suspend fun subscriptionFeed(): List<VideoItem> =
         browse("FEsubscriptions", pages = 2).flatMap { Yti.videos(it) }.distinctBy { it.id }
 
-    suspend fun playlist(browseId: String): List<VideoItem> =
-        browse(browseId, pages = 2).flatMap { Yti.videos(it) }.distinctBy { it.id }
+    suspend fun playlist(browseId: String): List<VideoItem> {
+        if (io.github.shoalapps.swordfish.player.NetworkInfo.offline()) return AppGraph.actions.playlist(browseId)
+        val list = browse(browseId, pages = 2).flatMap { Yti.videos(it) }.distinctBy { it.id }
+        AppGraph.actions.rememberPlaylist(browseId, list)
+        return list
+    }
 
     suspend fun likedVideos() = playlist("VLLL")
     suspend fun watchLater() = playlist("VLWL")
@@ -204,20 +226,26 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
 
     // -------- Actions --------
 
-    suspend fun setSubscribed(channelId: String, subscribed: Boolean) {
+    suspend fun setSubscribed(channelId: String, subscribed: Boolean) { AppGraph.actions.submit("subscription", channelId, subscribed.toString()) }
+
+    private suspend fun sendSetSubscribed(channelId: String, subscribed: Boolean) {
         post(if (subscribed) "subscription/subscribe" else "subscription/unsubscribe") {
             putJsonArray("channelIds") { add(channelId) }
         }
     }
 
-    suspend fun setNotifications(channelId: String, mode: NotificationMode) {
+    suspend fun setNotifications(channelId: String, mode: NotificationMode) { AppGraph.actions.submit("bell", channelId, mode.name) }
+
+    private suspend fun sendSetNotifications(channelId: String, mode: NotificationMode) {
         post("notification/modify_channel_preference") {
             put("params", SubscriptionNotifications.preferenceParams(channelId, mode))
         }
     }
 
     /** action = "like", "dislike" or "removelike" */
-    suspend fun rate(videoId: String, action: String) {
+    suspend fun rate(videoId: String, action: String) { AppGraph.actions.submit("rating", videoId, action) }
+
+    private suspend fun sendRate(videoId: String, action: String) {
         post("like/$action") { putJsonObject("target") { put("videoId", videoId) } }
     }
 
@@ -253,7 +281,9 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         return token
     }
 
-    suspend fun postComment(videoId: String, text: String) {
+    suspend fun postComment(videoId: String, text: String) { AppGraph.actions.submit("comment", videoId, text) }
+
+    private suspend fun sendPostComment(videoId: String, text: String) {
         val page = commentsPage(videoId)
         val params = Yti.findStringPublic(page, "createCommentParams")
             ?: throw IOException("YouTube didn't allow commenting here")
@@ -263,7 +293,9 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         }
     }
 
-    suspend fun replyToComment(videoId: String, commentId: String, text: String) {
+    suspend fun replyToComment(videoId: String, commentId: String, text: String) { AppGraph.actions.submit("reply", videoId, text, commentId) }
+
+    private suspend fun sendReplyToComment(videoId: String, commentId: String, text: String) {
         val page = commentsPage(videoId)
         // Find the smallest object mentioning this comment that carries reply parameters.
         val params = withContext(Dispatchers.Default) {
@@ -289,7 +321,9 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
      * Likes, dislikes or clears your rating on a comment. YouTube only hands out the action tokens
      * with the signed-in comments page, so this works for comments on its first page.
      */
-    suspend fun rateComment(videoId: String, commentId: String, from: io.github.shoalapps.swordfish.player.Rating, to: io.github.shoalapps.swordfish.player.Rating) {
+    suspend fun rateComment(videoId: String, commentId: String, from: io.github.shoalapps.swordfish.player.Rating, to: io.github.shoalapps.swordfish.player.Rating) { AppGraph.actions.submit("commentRating", videoId + "|" + commentId, to.name, from.name) }
+
+    private suspend fun sendRateComment(videoId: String, commentId: String, from: io.github.shoalapps.swordfish.player.Rating, to: io.github.shoalapps.swordfish.player.Rating) {
         val page = commentsPage(videoId)
         val tokens = withContext(Dispatchers.Default) { Yti.commentActions(page, commentId) }
         val kind = when (to) {
@@ -301,7 +335,9 @@ class YouTubeAccount(private val http: OkHttpClient, private val store: Store) {
         post("comment/perform_comment_action") { putJsonArray("actions") { add(JsonPrimitive(token)) } }
     }
 
-    suspend fun saveToWatchLater(videoId: String) {
+    suspend fun saveToWatchLater(videoId: String) { AppGraph.actions.submit("watchLater", videoId) }
+
+    private suspend fun sendSaveToWatchLater(videoId: String) {
         post("browse/edit_playlist") {
             put("playlistId", "WL")
             putJsonArray("actions") {

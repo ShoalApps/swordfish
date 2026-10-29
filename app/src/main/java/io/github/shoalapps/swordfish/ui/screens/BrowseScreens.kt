@@ -131,6 +131,7 @@ class SearchViewModel : ViewModel() {
         submitted = null
         suggestJob?.cancel()
         if (q.isBlank()) { suggestions = emptyList(); return }
+        if (io.github.shoalapps.swordfish.player.NetworkInfo.offline()) { suggestions = emptyList(); return }
         suggestJob = viewModelScope.launch {
             delay(200)
             suggestions = AppGraph.repo.suggestions(q)
@@ -147,6 +148,12 @@ class SearchViewModel : ViewModel() {
         results = emptyList(); error = null; next = null; loading = true
         searchJob = viewModelScope.launch {
             try {
+                if (io.github.shoalapps.swordfish.player.NetworkInfo.offline()) {
+                    results = io.github.shoalapps.swordfish.data.FeedFilter.apply(AppGraph.offline.videos.value.filter {
+                        it.complete && (it.video.title.contains(q, true) || it.video.channelName.contains(q, true))
+                    }.map { it.video }).map { io.github.shoalapps.swordfish.data.Entry.Video(it) }
+                    return@launch
+                }
                 val page = AppGraph.repo.search(q, filter = filter)
                 results = io.github.shoalapps.swordfish.data.FeedFilter.entries(page.items)
                 next = page.next
@@ -339,6 +346,15 @@ class ChannelViewModel(private val url: String) : ViewModel() {
         loading = true; error = null
         viewModelScope.launch {
             try {
+                if (io.github.shoalapps.swordfish.player.NetworkInfo.offline()) {
+                    videos = io.github.shoalapps.swordfish.data.FeedFilter.apply(AppGraph.offline.videos.value.filter {
+                        it.complete && it.video.channelUrl == url
+                    }.map { it.video })
+                    val first = videos.firstOrNull()
+                    details = io.github.shoalapps.swordfish.data.ChannelDetails(url, first?.channelName ?: "Downloaded channel",
+                        first?.channelAvatar, null, -1, "Downloaded videos available offline", null)
+                    return@launch
+                }
                 val d = AppGraph.repo.channel(url)
                 details = d
                 d.videosTab?.let { tab ->

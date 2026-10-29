@@ -19,10 +19,10 @@ object NetworkInfo {
     }.getOrDefault(false)
 
     /** True when the phone has no usable internet connection at all. */
-    fun offline(): Boolean = runCatching {
+    fun offline(): Boolean = AppGraph.store.settings.value.offlineMode || runCatching {
         val cm = AppGraph.app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
-        caps == null || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        caps == null || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }.getOrDefault(false)
 
     fun isBotCheck(msg: String?) = msg.orEmpty().let { it.contains("not a bot", true) || it.contains("LOGIN_REQUIRED") }
