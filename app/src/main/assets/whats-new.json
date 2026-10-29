@@ -1,5 +1,9 @@
 [
   {
+    "title": "More reliable background downloads",
+    "body": "Updated Android background-work handling to fix a crash when download services start and stop close together, including on Android 16."
+  },
+  {
     "title": "Downloads with a clearer view",
     "body": "Downloads now show thumbnails and short, readable errors. Swordfish refreshes yt-dlp before first use and checks for updates daily on an allowed connection."
   },
