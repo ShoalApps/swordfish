@@ -129,7 +129,11 @@ class OfflineVideos(private val context: Context) {
     @Synchronized
     fun reconcile() {
         // Keep automatic copies usable throughout an offline session, including when switching videos.
-        if (NetworkInfo.offline()) return
+        if (NetworkInfo.offline()) {
+            work.cancelAllWorkByTag(AUTO_TAG)
+            work.cancelAllWorkByTag("saved-download")
+            return
+        }
         val settings = AppGraph.store.settings.value
         if (wifiOnly != settings.downloadWifiOnly) {
             _videos.value.filterNot { it.complete }.forEach { work.cancelUniqueWork(workName(it.video.id)) }
